@@ -1,0 +1,94 @@
+import { Callout } from 'nextra/components';
+
+# 🎨 Customizable UI Templates
+
+Do you need immutable certificates that match the look and feel of your website or service, similar to UVerify? No problem! 🌟 Just implement your own UI template. UVerify allows you to white-label the certificate page to suit your unique use case.
+
+<img src="/custom-ui-template.png" className="w-2/3 max-w-[600px] my-4" />
+
+## 🛠️ Create a Template
+
+### Abstract Template Class
+
+Creating a custom UI template involves implementing an abstract class:
+
+```typescript
+export abstract class Template {
+  protected whitelist: string[] | '*';
+  public theme: Partial<ThemeSettings>;
+
+  constructor() {
+    this.whitelist = '*';
+    this.theme = {
+      background: 'bg-main-gradient',
+    };
+  }
+
+  public validate(payment_credential: string) {
+    if (this.whitelist === '*') {
+      return true;
+    }
+
+    return this.whitelist.includes(payment_credential);
+  }
+
+  public abstract render(
+    hash: string,
+    metadata: UVerifyMetadata,
+    certificate: UVerifyCertificate | undefined,
+    pagination: JSX.Element,
+    extra: UVerifyCertificateExtraData
+  ): JSX.Element;
+}
+
+export type UVerifyCertificateExtraData = {
+  hashedMultipleTimes: boolean;
+  firstDateTime: string;
+  issuer: string;
+  serverError: boolean;
+  isLoading: boolean;
+};
+```
+
+### ThemeSettings
+
+You can enhance the certificate page with custom components, like rotating 3D models or links to your organization's intranet, ensuring transparency for external users while maintaining a straightforward usability or audit flow for internal users. Additionally, ThemeSettings allows you to effortlessly customize the existing page to match your style.
+
+```
+export type ThemeSettings = {
+  background: string;
+  colors: Colors;
+  components: Components;
+};
+```
+
+The background setting lets you apply a different gradient, background color, or image to your website. Meanwhile, the colors object gives you the flexibility to modify the default UVerify color scheme.
+
+#### Colors
+
+```
+export type Colors = {
+  ice: Partial<{
+    [key in Shades]: string;
+  }>;
+  green: Partial<{
+    [key in Shades]: string;
+  }>;
+  cyan?: Partial<{ [key in Shades]: string }>;
+  ...
+};
+```
+
+### Customizable Component Styles
+
+You can also change the look and feel of other components like the `pagination` or the `metadataViewer`:
+
+```
+export type Components = Partial<{
+  pagination: PaginationStyle;
+  identityCard: IdentityCardStyle;
+  metadataViewer: MetadataViewerStyle;
+  fingerprint: FingerprintStyle;
+  ...
+}>;
+```

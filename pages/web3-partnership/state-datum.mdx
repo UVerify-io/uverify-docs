@@ -1,0 +1,75 @@
+import { Callout } from 'nextra/components';
+
+# State Datum
+
+The state datum represents the user state of the UVerify fee system. To create a state datum, it needs a bootstrap datum as reference input. The state datum is forked from the [bootstrap datum](bootstrap-datum.md) and is used to manage the user's state. Here's what a state datum looks like:
+
+```rust
+type StateDatum {
+  id: ByteArray,
+  owner: VerificationKeyHash,
+  authorization_token_script_hash: ByteArray,
+  update_token_contract_credential: ByteArray,
+  fee: Int,
+  fee_interval: Int,
+  fee_receivers: List<VerificationKeyHash>,
+  ttl: Int,
+  countdown: Int,
+  certificates: List<UVerifyCertificate>,
+  batch_size: Int,
+  bootstrap_datum_name: AssetName,
+}
+```
+
+## ID 🔑
+
+The unique identifier of the state datum. It is generated as a hash that includes the output reference of an input consumed during a successful transaction.
+
+## Owner 👤
+
+The payment credential of the user who owns the state datum.
+
+## Fee 💰
+
+This is the service charge applied on every fee interval.
+
+## Fee Interval ⏱️
+
+The interval at which the fee is charged. The Cardano blockchain operates on a UTXO model, and to prevent dust UTXOs, a minimum fee of 1 ADA is required. To avoid users paying 1 ADA or more per certificate, we charge the fee at regular intervals. The fee interval specifies the number of certificates after which the fee is applied.
+
+## Fee Receivers 📥
+
+The fee collected is distributed among the designated fee receivers, ensuring fair compensation for all parties involved.
+
+## TTL (Time to Live) ⏳
+
+This defines the lifespan of the bootstrap datum, measured in UNIX time, providing a clear timeline for its validity.
+
+## Countdown ⏳
+
+The countdown is the number of certificates left before the state token needs to be renewed. Furthermore, the countdown is used to determine when the fee is charged.
+
+## Certificate 📜
+
+The UVerify certificate is part of the state datum update transaction.
+
+```rust
+type UVerifyCertificate {
+  hash: ByteArray,
+  algorithm: String,
+  issuer: ByteArray,
+  extra: List<String>,
+}
+```
+
+## Authorization Token Script Hash and Update Token Contract Credential 🔒
+
+These fields are internal references to the contract managing state updates. You can safely ignore them as they are handled automatically.
+
+## Batch Size 📦
+
+The number of certificates that can be issued in a single transaction. This helps reduce the fee cost per certificate.
+
+## Bootstrap Datum Name 🏷
+
+The name of the bootstrap datum from which the state datum is derived. This can also be used as a condition to display a custom user interface for the certificate page.
