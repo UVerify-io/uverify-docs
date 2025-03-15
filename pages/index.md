@@ -1,6 +1,6 @@
 # Welcome to UVerify: Your Gateway to Blockchain Simplicity
 
-UVerify makes blockchain technology accessible to everyone, even if you have no prior experience. Effortlessly secure your file or text hashes on the Cardano blockchain. Whether you prefer using your own wallet or want a hassle-free experience, our drag-and-drop feature combined with PayPal payment makes the process seamless.
+UVerify makes blockchain technology accessible to everyone, with no experience required. Secure your files or documents easily on the Cardano blockchain. Your file is never stored. Instead, UVerify saves a unique fingerprint to ensure the data hasn't been tampered with. Use UVerify with your own wallet or reach out to us for a custom solution.
 
 ## Getting Started
 
