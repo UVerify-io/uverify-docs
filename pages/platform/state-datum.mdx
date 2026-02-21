@@ -8,8 +8,6 @@ The state datum represents the user state of the UVerify fee system. To create a
 type StateDatum {
   id: ByteArray,
   owner: VerificationKeyHash,
-  authorization_token_script_hash: ByteArray,
-  update_token_contract_credential: ByteArray,
   fee: Int,
   fee_interval: Int,
   fee_receivers: List<VerificationKeyHash>,
@@ -18,6 +16,7 @@ type StateDatum {
   certificates: List<UVerifyCertificate>,
   batch_size: Int,
   bootstrap_datum_name: AssetName,
+  keep_as_oracle: bool,
 }
 ```
 
@@ -62,10 +61,6 @@ type UVerifyCertificate {
 }
 ```
 
-## Authorization Token Script Hash and Update Token Contract Credential 🔒
-
-These fields are internal references to the contract managing state updates. You can safely ignore them as they are handled automatically.
-
 ## Batch Size 📦
 
 The number of certificates that can be issued in a single transaction. This helps reduce the fee cost per certificate.
@@ -73,3 +68,11 @@ The number of certificates that can be issued in a single transaction. This help
 ## Bootstrap Datum Name 🏷
 
 The name of the bootstrap datum from which the state datum is derived. This can also be used as a condition to display a custom user interface for the certificate page.
+
+## Keep as Oracle
+
+Normally, each certificate transaction consumes the existing state UTXO and produces a new one with updated data. The previous datum disappears from the chain as the UTXO is spent, which means it cannot be used as a reference input by other scripts.
+
+When `keep_as_oracle` is set to `true`, the state UTXO is frozen: no further certificate updates can be made against it. The UTXO stays locked in the script permanently and its data remains available on-chain as a reference input, allowing other contracts to read it without consuming it.
+
+The trade-off is that issuing new certificates through this state is no longer possible. To continue issuing certificates, the user must derive a new state from a bootstrap datum.

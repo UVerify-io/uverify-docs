@@ -1,0 +1,220 @@
+import { Callout } from 'nextra/components';
+
+# Building a Custom Template
+
+If the built-in templates do not fit your use case, you can build your own. A custom template is a TypeScript class that controls the entire visual layout and behaviour of the certificate page for certificates issued from your account.
+
+Custom templates are licensed under **Apache 2.0**, separate from the UVerify core which is AGPL-3.0. You can build and distribute proprietary templates without any open-source obligations.
+
+## Prerequisites
+
+- Node.js 18+
+- npm or similar package manager
+- Basic knowledge of TypeScript and React
+
+## Scaffold a New Template
+
+Use the UVerify CLI to generate a template project:
+
+```bash
+npx @uverify/cli init my-template
+cd my-template
+npm install
+npm run dev
+```
+
+This creates a development environment where you can preview your template against live certificate data.
+
+The scaffold creates a `Certificate.tsx` file in `src/`. This is the only file you need to modify.
+
+## The Template Class
+
+Every template extends the abstract `Template` class from `@uverify/core`:
+
+```typescript
+import { Template, UVerifyMetadata, UVerifyCertificate, UVerifyCertificateExtraData } from '@uverify/core';
+
+export default class MyTemplate extends Template {
+  public name = 'MyTemplate';
+
+  constructor() {
+    super();
+    // Optional: restrict this template to specific Cardano issuer addresses
+    // this.whitelist = ['addr1...', 'addr1...'];
+
+    // Optional: override theme colours and background
+    this.theme = {
+      background: 'bg-my-gradient',
+    };
+  }
+
+  public render(
+    hash: string,
+    metadata: UVerifyMetadata,
+    certificate: UVerifyCertificate | undefined,
+    pagination: JSX.Element,
+    extra: UVerifyCertificateExtraData
+  ): JSX.Element {
+    return (
+      <div>
+        <h1>{metadata.title ?? 'Certificate'}</h1>
+        <p>Hash: {hash}</p>
+        {certificate ? (
+          <p>Verified on: {extra.firstDateTime}</p>
+        ) : (
+          <p>Not found on-chain</p>
+        )}
+        {pagination}
+      </div>
+    );
+  }
+}
+```
+
+## Template Parameters
+
+The `render` method receives five parameters:
+
+### `hash: string`
+The SHA-256 hash of the document. This is the value the user verified.
+
+### `metadata: UVerifyMetadata`
+The on-chain metadata from the Cardano transaction. This is whatever key-value pairs the issuer included at notarization time. Common fields:
+
+```typescript
+type UVerifyMetadata = {
+  uverify_template_id?: string;
+  [key: string]: string | undefined;
+};
+```
+
+### `certificate: UVerifyCertificate | undefined`
+The on-chain certificate record. `undefined` when the hash is not found on-chain (i.e. the document has not been notarized, or the certificate is still loading).
+
+```typescript
+type UVerifyCertificate = {
+  hash: string;
+  algorithm: string;
+  issuer: string;       // Cardano address of the issuer
+  extra: string[];      // additional on-chain data
+};
+```
+
+### `pagination: JSX.Element`
+A pre-built pagination component. Include this in your render output if the same hash may appear in multiple transactions. If you do not include it, users cannot navigate between multiple notarizations of the same document.
+
+### `extra: UVerifyCertificateExtraData`
+Runtime context derived at page load time. Not stored on-chain.
+
+```typescript
+type UVerifyCertificateExtraData = {
+  hashedMultipleTimes: boolean; // true if this hash was notarized more than once
+  firstDateTime: string;        // human-readable date of the first notarization
+  issuer: string;               // resolved Cardano address (respects 'original-issuer' metadata)
+  serverError: boolean;         // true if the backend API call failed (not 404)
+  isLoading: boolean;           // true while certificate data is being fetched
+};
+```
+
+## ThemeSettings
+
+The `theme` property lets you change the colours and background of the certificate page:
+
+```typescript
+this.theme = {
+  background: 'bg-custom-gradient', // Tailwind class for the page background
+  colors: {
+    ice: { 500: '#0396b7', 600: '#027a96' },
+    green: { 500: '#00a072', 600: '#008a62' },
+  },
+  components: {
+    pagination: { /* custom styles */ },
+    identityCard: { /* custom styles */ },
+    metadataViewer: { /* custom styles */ },
+    fingerprint: { /* custom styles */ },
+  },
+};
+```
+
+## Whitelist
+
+If you want your template to activate only for certificates issued from specific Cardano addresses, set the `whitelist` property:
+
+```typescript
+this.whitelist = [
+  'addr1qx...your-main-address',
+  'addr1qx...your-secondary-address',
+];
+```
+
+Certificates from addresses not in the whitelist will fall back to the `default` template. Certificates from whitelisted addresses will always use your custom template, regardless of the `uverify_template_id` in their metadata.
+
+## Document Expected Metadata
+
+Optionally declare what metadata fields your template expects. This helps other developers understand your template's requirements:
+
+```typescript
+public layoutMetadata = {
+  title: 'Title of the document or award',
+  recipient: 'Full name of the recipient',
+  date: 'ISO 8601 date string',
+};
+```
+
+## Registering a Custom Template
+
+### In the standard UI build
+
+Add the template path to your `.env`:
+
+```env
+VITE_ADDITIONAL_TEMPLATES="MyTemplate:../my-template/src/Certificate.tsx"
+```
+
+Multiple templates:
+
+```env
+VITE_ADDITIONAL_TEMPLATES="TemplateA:../path/a/Certificate.tsx,TemplateB:../path/b/Certificate.tsx"
+```
+
+Then rebuild the UI. The template will be available under the `id` you choose (the template ID used in `uverify_template_id` metadata is the key in this variable, lowercased).
+
+### With Docker (custom image)
+
+Use the custom Docker image that builds at container start, and mount your template directory:
+
+```bash
+docker run \
+  -e VITE_BACKEND_URL=https://api.uverify.io \
+  -e VITE_CARDANO_NETWORK=mainnet \
+  -e VITE_ADDITIONAL_TEMPLATES="MyTemplate:/templates/my-template/src/Certificate.tsx" \
+  -v /path/to/my-template:/templates/my-template \
+  -p 3000:80 \
+  uverify/uverify-ui:custom
+```
+
+<Callout type="info">
+  The `custom` Docker image delays the Vite build to container startup. This is necessary so your mounted template files are available when the build runs. Use the standard image if you are not adding custom templates.
+</Callout>
+
+## Activating Your Template
+
+Set `uverify_template_id` in your certificate metadata to the template ID (the key from `VITE_ADDITIONAL_TEMPLATES`) when notarizing:
+
+```json
+{
+  "uverify_template_id": "MyTemplate",
+  "title": "Certificate of Completion",
+  "recipient": "Jane Doe"
+}
+```
+
+## Reference Implementation
+
+The [`uverify-ui-template`](https://github.com/UVerify-io/uverify-ui-template) repo contains:
+
+- `blueprint`: a complete example template implementation
+- `core`: TypeScript types and the abstract `Template` class
+- `cli`: the `@uverify/cli` tool that powers `npx @uverify/cli init`
+
+Look at the `blueprint` package for a working example to build from.

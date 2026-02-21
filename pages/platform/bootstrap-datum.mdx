@@ -3,7 +3,7 @@
 When someone wants to use UVerify to create certificates, they will need a State — a personal workspace that enables them to issue and manage certificates. This State is created by "forking" from a Bootstrap Datum, which acts like a Web3 API key.
 
 The Bootstrap Datum defines the rules and conditions for using UVerify, such as fees, batch sizes, and who is authorized to use it. It's the foundation for enabling seamless certificate issuance while giving you control over how the system operates.
-By creating a Bootstrap Datum, you're not just setting up your own certificate issuance system — you're also enabling others to use it under your terms, while you earn revenue from their activity.
+By creating a Bootstrap Datum, you're not just setting up your own certificate issuance system. You're also enabling others to use it under your terms, while you earn revenue from their activity.
 This is the process of forking a new State from a Bootstrap Datum:
 
 ```mermaid
@@ -35,15 +35,13 @@ flowchart TD
     style G stroke-width:0
     style I stroke-width:0
 
-    click H href "./web3-partnership/bootstrap-datum"
+    click H href "./platform/bootstrap-datum"
 ```
 
 ```rust
 type BootstrapDatum {
   allowed_credentials: List<VerificationKeyHash>,
-  authorization_token_script_hash: ByteArray,
   token_name: AssetName,
-  update_token_contract_credential: ByteArray,
   fee: Int,
   fee_interval: Int,
   fee_receivers: List<VerificationKeyHash>,
@@ -80,10 +78,6 @@ This defines the lifespan of the bootstrap datum, measured in UNIX time, providi
 ## Transaction Limit 🔄
 
 Users can fork this bootstrap datum into a state datum. The transaction limit specifies the number of certificates after which the state token needs to be renewed, maintaining system efficiency.
-
-## Authorization Token Script Hash and Update Token Contract Credential 🔒
-
-These fields are internal references to the contract managing state updates. You can safely ignore them as they are handled automatically.
 
 ## Batch Size 📦
 

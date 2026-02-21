@@ -1,0 +1,7 @@
+# Custom UI Templates
+
+As a platform operator, you can provide a fully branded certificate experience by building custom templates. A custom template controls the entire look and behaviour of the certificate page for certificates issued through your Bootstrap Datum.
+
+Full documentation, including the CLI scaffold, the Template class API, theming, and Docker deployment, is in the [Custom Templates](../templates) section.
+
+The key connection to your platform setup: set `VITE_ADDITIONAL_TEMPLATES` when deploying the frontend, and register the template ID in your Bootstrap Datum's `token_name` field so it activates automatically for your users.

@@ -1,37 +1,79 @@
-# Welcome to UVerify: Your Gateway to Blockchain Simplicity
+# Getting Started with UVerify
 
-UVerify makes blockchain technology accessible to everyone, with no experience required. Secure your files or documents easily on the Cardano blockchain. Your file is never stored. Instead, UVerify saves a unique fingerprint to ensure the data hasn't been tampered with. Use UVerify with your own wallet or reach out to us for a custom solution.
+UVerify proves a document is authentic and unchanged, using the Cardano blockchain. Your file never leaves your device. UVerify computes a unique fingerprint (SHA-256 hash) locally and records only that fingerprint on-chain.
 
-## Getting Started
+The certificate page that proves a document's authenticity is not just a static page. It is a fully interactive decentralized application (dapp). Depending on how it was configured, it can connect to Cardano wallets, mint NFTs, enforce access control, and run entirely different user interfaces, all driven by on-chain data.
 
-Your journey with UVerify begins with your specific needs. Here are some common scenarios to guide you:
+## Choose Your Path
 
-**Scenario 1: One-Time Proof of Existence**
+There are three ways to use UVerify, each targeting a different level of involvement.
 
-_Question:_ How can I prove that my document existed at a specific time and remains unaltered?
+---
 
-_Solution:_ Simply visit [UVerify.io](https://app.uverify.io), drag and drop your file, or paste your text. Our intuitive process will guide you every step of the way.
+### Path 1: Just use the web app
 
-**Scenario 2: Automating Document Verification**
+No code required. Visit [app.uverify.io](https://app.uverify.io), drag and drop a file or paste text, and your fingerprint is recorded on-chain in one transaction.
 
-_Question:_ How can I automate the process of putting multiple documents on the blockchain?
+**You need:**
+- A Cardano wallet (e.g. [Eternl](https://eternl.io), [Lace](https://www.lace.io), or [Vespr](https://vespr.xyz))
+- ADA to cover the Cardano network transaction fee
 
-_Solution:_ Leverage the [UVerify API](./api-docs) to programmatically hash your documents, streamlining your workflow.
+**No ADA yet?** On preprod, the Cardano testnet, you can get free test ADA from the [Cardano Faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/). On mainnet, ADA is available on exchanges. If your organization faces regulatory barriers to acquiring ADA, reach out. We offer [fee sponsorship](./pricing#fee-sponsorship) for projects that are a good fit.
 
-**Scenario 3: Offering Verification Services to Clients**
+---
 
-_Question:_ Can I use UVerify to help my clients verify documents on the blockchain?
+### Path 2: Automate with the API
 
-_Solution:_ Absolutely! Utilize the [UVerify Partnership System](./web3-partnership) to earn a share of service fees and create a custom-branded certificate page for your clients. Integrate UVerify into your application with our [SDKs](./sdk) or use the [API](./api-docs) for programmatic document hashing.
+Use the [UVerify REST API](./api-docs) to notarize documents programmatically. No API key, no rate limits. The public instance at `https://api.uverify.io` is open to anyone.
 
-## Key Features
+**Good for:**
+- Automated pipelines that hash and record documents in bulk
+- Backend services that need to verify whether a hash exists on-chain
+- Integrating UVerify into your own product without building a frontend
 
-- **[Custom UI Templates](./web3-partnership/custom-ui-templates):** Tailor the look and feel to match your brand.
-- **[Web3 Partnership System](./web3-partnership):** Collaborate and earn with ease.
-- **[Software Development Kits](./sdk):** Seamlessly integrate UVerify into your applications.
+**You need:**
+- An HTTP client (curl, fetch, axios, etc.)
+- A Cardano wallet to sign transactions if you are notarizing (verification is read-only)
 
-## API Documentation
+---
 
-- **[API Overview](./api-docs):** Get started with our comprehensive API.
+### Path 3: Build on top of UVerify
 
-Explore the possibilities with UVerify and transform how you interact with blockchain technology today!
+Create a fully white-labelled certificate experience using [UVerify as a Platform](./platform) and [Custom Templates](./templates). You get your own branding, your own fee structure, and the certificates your users create look and feel like they came from you.
+
+**Good for:**
+- Universities issuing verifiable diplomas
+- Brands shipping physical goods with on-chain product passports
+- Any service where your users need tamper-proof certificates under your brand
+
+**You need:**
+- A custom [Bootstrap Datum](./platform/bootstrap-datum) (reach out to [hello@uverify.io](mailto:hello@uverify.io) or [join our Discord](https://discord.gg/Dvqkynn6xc))
+- Optionally: a custom UI template built with `npx @uverify/cli init`
+
+Or go fully independent and [self-host the entire stack](./self-hosting). The backend and frontend are both open source.
+
+---
+
+## Core Concept: The Certificate as a Dapp
+
+A UVerify certificate page is not a static document. It is a dapp whose behaviour is determined by:
+
+1. **On-chain data**: the hash, metadata, issuer, and template ID stored in the Cardano transaction
+2. **The template**: selected via the `uverify_template_id` metadata field; controls the entire look and behaviour of the page
+3. **URL parameters**: can carry partial data (e.g. a split secret for privacy-preserving use cases)
+
+This means the same infrastructure can power a diploma viewer, a product authentication page, a GDPR-compliant pet necklace, or an NFT-gating system, with zero additional server infrastructure for the service provider.
+
+See [How It Works](./concepts) for a deeper explanation.
+
+## Key Resources
+
+| What you want to do | Where to go |
+|---|---|
+| Understand the concepts | [How It Works](./concepts) |
+| See concrete use cases | [Use Cases](./use-cases) |
+| Use the API | [API Docs](./api-docs) |
+| Build a custom certificate UI | [Custom Templates](./templates) |
+| White-label UVerify for your brand | [UVerify as a Platform](./platform) |
+| Run UVerify yourself | [Self-Hosting](./self-hosting) |
+| Understand fees | [Pricing](./pricing) |

@@ -1,0 +1,143 @@
+# Built-in Templates
+
+UVerify ships with six built-in templates. You activate a template by setting the `uverify_template_id` field in your certificate metadata at notarization time.
+
+## default
+
+The standard certificate view. Used when no `uverify_template_id` is specified.
+
+<img src="/template-default.png" alt="Default template" style={{maxWidth: '640px', width: '100%'}} />
+
+**What it shows:**
+- Verification status (verified / not found / error)
+- Metadata viewer (all on-chain metadata fields)
+- Issuer identity card with Cardano address
+- Block explorer link to the transaction
+- Pagination if the same hash was notarized multiple times
+- First notarization timestamp
+
+**Metadata fields:** any key-value pairs you include are shown in the metadata viewer.
+
+---
+
+## monochrome
+
+Identical to `default` in behaviour and layout, but with a monochrome colour scheme. Useful for document-focused contexts where a neutral look is preferred.
+
+**Activate:**
+```json
+{ "uverify_template_id": "monochrome" }
+```
+
+---
+
+## diploma
+
+A formatted diploma certificate layout. Designed for academic credentials, awards, and formal certifications.
+
+**What it shows:**
+- Institution name (from `issuer`)
+- Recipient name (from `name`)
+- Degree or award title (from `title`)
+- Optional description (from `description`)
+- Optional decorative background pattern (from `pattern`)
+- Blockchain verification proof
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"diploma"` |
+| `issuer` | Name of the issuing institution |
+| `name` | Name of the recipient |
+| `title` | Degree, award, or certification title |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `description` | Additional text or HTML displayed below the title |
+| `pattern` | SVG pattern string for the certificate background |
+
+**Example:**
+```json
+{
+  "uverify_template_id": "diploma",
+  "issuer": "University of Example",
+  "name": "Jane Doe",
+  "title": "Master of Science in Computer Science",
+  "description": "Awarded with distinction, June 2024"
+}
+```
+
+---
+
+## socialHub
+
+A social profile hub for physical items. Used in the [Connected Goods](../use-cases/connected-goods) use case.
+
+<img src="/template-social-hub.png" alt="Social Hub template" style={{maxWidth: '640px', width: '100%'}} />
+
+**What it shows:**
+- Product information
+- A link tree that the item owner can update
+- Wallet connect for claiming the item and minting an NFT
+- Secret validation (checks `?secret=` URL parameter against the on-chain `hashed_secret`)
+
+**Whitelist:** this template is restricted to specific issuer addresses. Contact the UVerify team to set up a Connected Goods deployment.
+
+**Alias:** `linktree` maps to this template for backwards compatibility.
+
+---
+
+## productVerification
+
+Product authentication with support for asymmetric NFC chip verification.
+
+<img src="/template-product-verification.png" alt="Product Verification template" style={{maxWidth: '640px', width: '100%'}} />
+
+**What it shows:**
+- Product image, name, manufacturer, production date
+- Material information and serial number
+- NFC chip verification status (if an NFC chip is present and tapped)
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"productVerification"` |
+| `productName` | Name of the product |
+| `manufacturer` | Manufacturer name |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `productionDate` | Date of production |
+| `materialInfo` | Material and care information |
+| `serialNumber` | Unique serial number |
+| `imageUrl` | URL to the product image |
+
+**Example:**
+```json
+{
+  "uverify_template_id": "productVerification",
+  "productName": "Titanium Road Frame Pro",
+  "manufacturer": "ExampleBikes GmbH",
+  "productionDate": "2024-11-15",
+  "serialNumber": "TRF-2024-00842",
+  "imageUrl": "https://cdn.example.com/products/trf-pro.jpg"
+}
+```
+
+**Whitelist:** this template is restricted to specific issuer addresses. Contact the UVerify team to enable it for your account.
+
+**Asymmetric NFC:** this template uses the [`@uverify/asymmetric-nfc`](https://github.com/UVerify-io/asymmetric-nfc) library. The NFC chip holds a private key and signs a server challenge; the certificate page verifies the signature against the public key stored on-chain. This proves physical possession of the genuine chip, not just knowledge of the URL.
+
+---
+
+## tadamon
+
+A branded certificate template built as a proof of concept with the Tadamon UNDP program.
+
+**Whitelist:** restricted to authorized Tadamon issuer addresses. Not available for general use.

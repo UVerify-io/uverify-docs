@@ -1,0 +1,198 @@
+import { Callout } from 'nextra/components';
+
+# Self-Hosting UVerify
+
+UVerify is fully open source. You can run the entire stack yourself: the frontend UI, the backend API, and your own Bootstrap Datum on Cardano. This gives you full control over branding, configuration, and data flow.
+
+```mermaid
+graph LR
+    User["Browser / User"]
+    UI["Frontend\nuverify-ui\n:3000"]
+    API["Backend\nuverify-backend\n:9090"]
+    BF["Blockfrost API"]
+    Chain["Cardano\nblockchain"]
+
+    User -->|"certificate page\n/ notarize"| UI
+    UI -->|"verify hash\n/ submit tx"| API
+    API -->|"on-chain queries"| BF
+    BF -->|"mainnet / preprod"| Chain
+```
+
+<Callout type="info">
+  If you only want to white-label the certificate page without running your own backend, you can point a custom UI deployment at the public API (`https://api.uverify.io`). The backend is only necessary if you need the Connected Goods or Tadamon extensions, or if you want full data independence.
+</Callout>
+
+## Repositories
+
+| Component | Repo | Language |
+|---|---|---|
+| Frontend UI | [uverify-ui](https://github.com/UVerify-io/uverify-ui) | TypeScript / React / Vite |
+| Backend API | [uverify-backend](https://github.com/UVerify-io/uverify-backend) | Java / Spring Boot |
+| Smart Contracts | [uverify-scripts](https://github.com/UVerify-io/uverify-scripts) | Aiken |
+| UI Template SDK | [uverify-ui-template](https://github.com/UVerify-io/uverify-ui-template) | TypeScript |
+
+The smart contracts are already deployed on Cardano mainnet and preprod. You do not need to redeploy them unless you are building a fork.
+
+## Quick Start with Docker Compose
+
+The fastest way to run the full stack is Docker Compose. A ready-made compose file is maintained in the UVerify GitHub organization:
+
+```bash
+curl -O https://raw.githubusercontent.com/UVerify-io/.github/main/scripts/docker-compose.yml
+cp src/main/resources/.env.example .env
+# Edit .env with your configuration (see Environment Variables below)
+docker compose up
+```
+
+This starts:
+- Frontend at `http://localhost:3000`
+- Backend API at `http://localhost:9090`
+
+## Prerequisites
+
+To run the backend you need:
+
+- **Blockfrost API key**: register at [blockfrost.io](https://blockfrost.io) and create a project for the Cardano network you want to use (mainnet or preprod)
+- **Java 17+** and **Maven 3.8+** (if running without Docker)
+
+You do not need to run a full Cardano node. Blockfrost handles all on-chain queries.
+
+## Backend Environment Variables
+
+Copy `.env.example` from the backend repo and configure:
+
+```bash
+git clone https://github.com/UVerify-io/uverify-backend.git
+cd uverify-backend
+cp src/main/resources/.env.example .env
+```
+
+### Required variables
+
+| Variable | Description | Example |
+|---|---|---|
+| `SPRING_ACTIVE_PROFILES` | Comma-separated Spring profiles: choose `h2` or `postgres` for the database, `mainnet` or `preprod` for the network | `preprod,h2` |
+| `CARDANO_BACKEND_TYPE` | Cardano data source: `blockfrost` or `koios` | `blockfrost` |
+| `CARDANO_NETWORK` | Target network: `MAINNET` or `PREPROD` | `PREPROD` |
+| `BLOCKFROST_PROJECT_ID` | Your Blockfrost project ID | `preprod123abc` |
+| `BLOCKFROST_BASE_URL` | Blockfrost API base URL for your network | `https://cardano-preprod.blockfrost.io/api/v0/` |
+
+### Optional variables
+
+| Variable | Description |
+|---|---|
+| `DB_URL` | Database URL when using H2 (default: `jdbc:h2:./data/db`) |
+| `CORS_ALLOWED_ORIGINS` | Allowed origins for CORS (e.g. `http://localhost:3000`) |
+| `LOG_LEVEL` | Logging level (default: `INFO`) |
+| `LOG_FILE` | Log file path (if not set, logs to console) |
+
+### Extension variables
+
+Enable optional extensions if you need them:
+
+```env
+# Connected Goods extension (for QR-gated NFT minting)
+CONNECTED_GOODS_EXTENSION_ENABLED=true
+CONNECTED_GOODS_SERVICE_WALLET_ADDRESS=addr1...
+CONNECTED_GOODS_ENCRYPTION_SALT=your-random-salt
+
+# Tadamon extension (for UNDP/ISFD branded certificates)
+TADAMON_EXTENSION_ENABLED=true
+TADAMON_ALLOWED_ADDRESSES=addr1,addr2
+TADAMON_GOOGLE_SHEETS_ID=1FZZA0N...
+TADAMON_GOOGLE_SHEETS_SERVICE_ACCOUNT=account@project.iam.gserviceaccount.com
+TADAMON_GOOGLE_SHEETS_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...
+```
+
+## Frontend Environment Variables
+
+The frontend reads two variables at container startup (not at build time):
+
+| Variable | Description | Default |
+|---|---|---|
+| `VITE_BACKEND_URL` | URL of the backend API | `http://localhost:9090` |
+| `VITE_CARDANO_NETWORK` | Cardano network: `mainnet`, `preprod`, or `preview` | `preprod` |
+| `VITE_ADDITIONAL_TEMPLATES` | Comma-separated list of custom templates to register, in the format `TemplateName:path/to/Certificate.tsx` | _(none)_ |
+
+These are injected into `public/config.json` when the container starts, so you can change them without rebuilding the image.
+
+`VITE_ADDITIONAL_TEMPLATES` is also useful during local development to test a custom template without building a Docker image:
+
+```bash
+VITE_ADDITIONAL_TEMPLATES="MyCertificate:../path/to/my-template/src/Certificate.tsx" npm run dev
+```
+
+## Docker Images
+
+Two Docker images are available for the frontend, depending on your use case.
+
+### Standard image (pre-built)
+
+Use this when you are using only the built-in templates:
+
+```bash
+docker run \
+  -e VITE_BACKEND_URL=https://api.uverify.io \
+  -e VITE_CARDANO_NETWORK=mainnet \
+  -p 3000:80 \
+  uverify/uverify-ui:latest
+```
+
+The image builds the app at image creation time. Environment variables are injected at container startup via a config script, so the same image works for different environments.
+
+### Custom image (builds at container start)
+
+Use this when you want to mount your own template files:
+
+```bash
+docker run \
+  -e VITE_BACKEND_URL=https://api.uverify.io \
+  -e VITE_CARDANO_NETWORK=mainnet \
+  -e VITE_ADDITIONAL_TEMPLATES="MyTemplate:/templates/my-template/src/Certificate.tsx" \
+  -v /path/to/my-template:/templates/my-template \
+  -p 3000:80 \
+  uverify/uverify-ui:custom
+```
+
+The custom image delays the Vite build to container startup, so mounted template files are available at build time. See [Custom Templates](./templates) for how to build a template.
+
+## Running the Backend with Docker
+
+```bash
+docker run \
+  --env-file .env \
+  -p 9090:9090 \
+  uverify/uverify-backend:latest
+```
+
+## Running the Backend from Source
+
+```bash
+git clone https://github.com/UVerify-io/uverify-backend.git
+cd uverify-backend
+cp src/main/resources/.env.example .env
+# Edit .env
+mvn clean package
+java -jar target/uverify-backend-*.jar
+```
+
+## Database
+
+The backend supports two database modes:
+
+- **H2** (embedded, default): zero setup, data persists in `./data/db`. Good for development and small deployments.
+- **PostgreSQL**: set `SPRING_ACTIVE_PROFILES` to include `postgres` and configure `DB_URL` with a PostgreSQL connection string.
+
+## Custom Bootstrap Datum
+
+When self-hosting, you can request a custom Bootstrap Datum from the UVerify team, or configure one yourself if you are deploying a fully independent fork. A Bootstrap Datum defines your fee structure, batch size, and which addresses are authorized to use your setup.
+
+See [UVerify as a Platform](./platform) and [Bootstrap Datum](./platform/bootstrap-datum) for details.
+
+## License
+
+The frontend (`uverify-ui`) and backend (`uverify-backend`) are licensed under **AGPL-3.0**. Modifications to these components must be open-sourced under the same license.
+
+Custom UI templates (built via `@uverify/cli`) are licensed under **Apache 2.0** and do not require AGPL compliance, even if you distribute them commercially.
+
+If the AGPL does not fit your use case, contact [hello@uverify.io](mailto:hello@uverify.io) to discuss alternative licensing.
