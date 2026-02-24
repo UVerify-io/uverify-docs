@@ -2,16 +2,76 @@ import { Callout } from 'nextra/components';
 
 # SDK
 
-We are actively working on Software Development Kits (SDKs) to help you integrate UVerify into your projects. Stay tuned for updates!
+Official SDKs for integrating UVerify into your projects. All SDKs are open source and available on [GitHub](https://github.com/UVerify-io/uverify-sdks).
 
-## Python SDK
+| Language | Package | Install |
+|----------|---------|---------|
+| [TypeScript / JavaScript](./sdk/typescript) | `@uverify/sdk` | `npm install @uverify/sdk` |
+| [Python](./sdk/python) | `uverify-sdk` | `pip install uverify-sdk` |
+| [Java](./sdk/java) | `io.uverify:uverify-sdk` | Maven / Gradle |
 
-Python SDK is coming soon!
+---
 
-## TypeScript SDK
+## Design principles
 
-TypeScript SDK is coming soon!
+All three SDKs follow the same two-layer design.
 
-## Java SDK
+### High-level helpers
 
-Java SDK is coming soon!
+The high-level methods are the recommended entry point for most use cases. They abstract away the multi-step process of interacting with the UVerify API:
+
+1. **Build** — ask the API to construct an unsigned Cardano transaction
+2. **Sign** — call your wallet's signing callback
+3. **Submit** — send the signed transaction back to the API
+
+The primary high-level methods are the same across all SDKs:
+
+| Operation | What it does |
+|-----------|--------------|
+| `verify(hash)` | Look up all on-chain certificates for a data hash |
+| `verifyByTransaction(txHash, dataHash)` | Fetch a specific certificate by transaction hash + data hash |
+| `issueCertificates(address, certificates, ...)` | Build, sign, and submit a certificate transaction in one call |
+| `getUserInfo(address, ...)` | Retrieve the current user state (countdown, state ID, …) |
+| `invalidateState(address, stateId, ...)` | Mark a state as invalid |
+| `optOut(address, stateId, ...)` | Remove the user's state entirely |
+
+### Low-level core
+
+For advanced flows — multi-sig setups, custom transaction submission, or building your own abstraction layer — every SDK exposes a `.core` submodule that lets you call each step individually:
+
+1. `core.buildTransaction(request)` → `POST /api/v1/transaction/build`
+2. `core.submitTransaction(tx, witnessSet)` → `POST /api/v1/transaction/submit`
+3. `core.requestUserAction(request)` → `POST /api/v1/user/request/action`
+4. `core.executeUserAction(request)` → `POST /api/v1/user/state/action`
+
+---
+
+## Signing callbacks
+
+Issuing certificates and managing user state require two types of signing callbacks. You can register them once in the client constructor or pass them per call:
+
+- **`signTx`** — receives an unsigned Cardano transaction (CBOR hex) and must return the witness set after signing
+- **`signMessage`** — receives a challenge message and must return a `{ key, signature }` pair (CIP-8 data signing)
+
+These callbacks are wallet-agnostic. Any CIP-30 browser wallet or headless wallet library (e.g. [mesh.js](https://meshjs.dev)) can be wired in.
+
+<Callout type="info">
+  Read-only operations (`verify`, `verifyByTransaction`) never require signing callbacks.
+</Callout>
+
+---
+
+## Self-hosted instances
+
+All clients accept a `baseUrl` option (or equivalent) to point at your own UVerify backend instead of the public API at `api.uverify.io`. See the [Self-Hosting](./self-hosting) guide for setup instructions.
+
+---
+
+## Error handling
+
+Each SDK defines two error types:
+
+- **`UVerifyApiError`** — an HTTP error returned by the API (status code + response body available)
+- **`UVerifyValidationError`** — a client-side error, most commonly a missing signing callback
+
+Both are thrown/raised as exceptions and can be caught in a standard try/catch block. See the language-specific pages for code examples.

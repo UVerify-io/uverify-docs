@@ -1,10 +1,21 @@
 export default {
+  // Match the dark base of the developer gradient so Nextra's TOC/sidebar
+  // fade-shadows blend seamlessly with the CSS gradient applied in main.css.
+  backgroundColor: {
+    dark: '3,8,18',
+    light: '250,250,250',
+  },
+  darkMode: false,
+  nextThemes: {
+    defaultTheme: 'dark',
+    forcedTheme: 'dark',
+  },
   projectLink: 'https://github.com/UVerify-io',
   docsRepositoryBase: 'https://github.com/UVerify-io/uverify-docs',
   titleSuffix: ' – UVerify Documentation',
   logo: (
     <div className="flex items-center justify-center">
-      <img src="/uverify.png" alt="UVerify Logo" className="h-8 w-auto mr-2" />
+      <img src="/uverify-icon.svg" alt="UVerify Logo" className="h-8 w-auto mr-2" />
       <span>UVerify</span>
     </div>
   ),
@@ -44,10 +55,4 @@ export default {
     link: 'https://discord.gg/Dvqkynn6xc',
   },
   footerText: 'UVerify © 2024',
-  i18n: [
-    {
-      locale: 'en',
-      text: 'English',
-    },
-  ],
 };
