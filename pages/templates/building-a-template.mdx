@@ -163,32 +163,58 @@ public layoutMetadata = {
 
 ## Registering a Custom Template
 
-### In the standard UI build
+### Via additional-templates.json
 
-Add the template path to your `.env`:
+Templates are registered in `additional-templates.json` in the `uverify-ui` project root. This file is read at build time by `config.js` and supports two entry types.
 
-```env
-VITE_ADDITIONAL_TEMPLATES="MyTemplate:../my-template/src/Certificate.tsx"
+**Local file** — a template located relative to the `uverify-ui` directory, useful during development:
+
+```json
+[
+  {
+    "type": "file",
+    "name": "MyTemplate",
+    "path": "../my-template/src/Certificate.tsx"
+  }
+]
 ```
 
-Multiple templates:
+**External repository** — a template fetched from a Git repository at a pinned commit (cloned into `.template-cache/` during the build):
 
-```env
-VITE_ADDITIONAL_TEMPLATES="TemplateA:../path/a/Certificate.tsx,TemplateB:../path/b/Certificate.tsx"
+```json
+[
+  {
+    "type": "repository",
+    "name": "MyTemplate",
+    "url": "https://github.com/some-org/my-template",
+    "commit": "a3f1c2d4e5b6...",
+    "path": "src/Certificate.tsx"
+  }
+]
 ```
 
-Then rebuild the UI. The template will be available under the `id` you choose (the template ID used in `uverify_template_id` metadata is the key in this variable, lowercased).
+<Callout type="info">
+  The `commit` field pins the exact revision used in the build. This makes external templates fully auditable and prevents unexpected upstream changes from affecting your deployment. To update a template, change the `commit` hash and rebuild.
+</Callout>
 
-### With Docker (custom image)
+After editing `additional-templates.json`, run `node config.js` to regenerate the template registry and then start or rebuild the UI.
 
-Use the custom Docker image that builds at container start, and mount your template directory:
+### Publishing to app.uverify.io
+
+To have your template included in the standard deployment at [app.uverify.io](https://app.uverify.io), open a pull request against the [`uverify-ui`](https://github.com/UVerify-io/uverify-ui) repository adding a `repository` entry for your template. All proposed templates are reviewed for security issues before being merged.
+
+Use the **Add External Template** issue template in `uverify-ui` to start the conversation before opening a PR.
+
+### With Docker (self-hosted)
+
+For self-hosted deployments, use the custom Docker image that builds at container start and mount your template directory:
 
 ```bash
 docker run \
   -e VITE_BACKEND_URL=https://api.uverify.io \
   -e VITE_CARDANO_NETWORK=mainnet \
-  -e VITE_ADDITIONAL_TEMPLATES="MyTemplate:/templates/my-template/src/Certificate.tsx" \
-  -v /path/to/my-template:/templates/my-template \
+  -v /path/to/additional-templates.json:/app/additional-templates.json \
+  -v /path/to/my-template:/app/.template-cache/my-template \
   -p 3000:80 \
   uverify/uverify-ui:custom
 ```
@@ -199,11 +225,11 @@ docker run \
 
 ## Activating Your Template
 
-Set `uverify_template_id` in your certificate metadata to the template ID (the key from `VITE_ADDITIONAL_TEMPLATES`) when notarizing:
+Set `uverify_template_id` in your certificate metadata to the template name (first character lowercased) when notarizing:
 
 ```json
 {
-  "uverify_template_id": "MyTemplate",
+  "uverify_template_id": "myTemplate",
   "title": "Certificate of Completion",
   "recipient": "Jane Doe"
 }
