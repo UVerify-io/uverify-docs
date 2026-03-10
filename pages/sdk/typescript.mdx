@@ -41,6 +41,14 @@ const client = new UVerifyClient({
   signMessage: async (message) => wallet.signData(address, message),
   signTx: (unsignedTx) => wallet.signTx(unsignedTx, true),
 });
+
+// Override the verification base URL for deep links (used by client.apps)
+// Defaults automatically: preprod API → preprod app, production API → production app
+const client = new UVerifyClient({
+  signMessage,
+  signTx,
+  verifyBaseUrl: 'https://app.uverify.io/verify',
+});
 ```
 
 ## Verify a certificate
@@ -148,6 +156,103 @@ const result = await client.core.executeUserAction({
 console.log(result.state);
 ```
 
+## Application helpers (`.apps`)
+
+`client.apps` provides high-level helpers for the three most common built-in templates. They handle hashing, metadata construction, prefix conventions, and verification URL generation automatically.
+
+### issueDiploma
+
+```ts
+import { UVerifyClient } from '@uverify/sdk';
+
+const client = new UVerifyClient({ signMessage, signTx });
+
+const result = await client.apps.issueDiploma(address, [
+  {
+    studentId: 'TUM-2021-0042',
+    name: 'Maria Müller',
+    degree: 'Master of Science in Computer Science',
+    institution: 'Technical University of Munich',
+    graduationDate: '2024-06-28',
+    honors: 'Summa Cum Laude',       // optional
+  },
+  {
+    studentId: 'TUM-2021-0117',
+    name: 'Felix Schmidt',
+    degree: 'Master of Science in Computer Science',
+    institution: 'Technical University of Munich',
+    graduationDate: '2024-06-28',
+  },
+]);
+
+console.log('Transaction:', result.txHash);
+
+for (const cert of result.certificates) {
+  // verifyUrl includes ?name= so the certificate page reveals the recipient's name
+  console.log(`${cert.name}: ${cert.verifyUrl}`);
+}
+```
+
+The hash is `sha256(studentId)`. The recipient's name is hashed and stored as `uv_url_name`; the plain name is appended as `?name=` in the returned `verifyUrl`. Update policy is set to `first`.
+
+### issueDigitalProductPassport
+
+```ts
+const { txHash, verifyUrl } = await client.apps.issueDigitalProductPassport(address, {
+  name: 'EcoCharge Powerbank Pro 200',
+  manufacturer: 'GreenTech AG',
+  gtin: '04012345678901',
+  serialNumber: 'EC200-SN-20240815-00847',
+  model: 'EC-200-2024',
+  origin: 'Germany',
+  manufactured: '2024-08-15',
+  contact: 'sustainability@greentech-ag.example',
+  brandColor: '#1a56db',
+  carbonFootprint: '1.2 kg CO₂e',
+  recycledContent: '38%',
+  energyClass: 'A++',
+  warranty: '3 years',
+  spareParts: 'Available until 2034',
+  repairInfo: 'https://greentech-ag.example/repair/ec-200',
+  recycling: 'Return to any EU-authorised WEEE recycling point.',
+  materials: { aluminum: '45%', recycled_plastic: '38%', lithium_cells: '12%' },
+  certifications: { ce: 'CE Marking', rohs: 'RoHS Compliant', energy_star: 'Energy Star 8.0' },
+});
+
+// verifyUrl includes ?serial= so the certificate page can reveal the serial number
+console.log('Passport URL:', verifyUrl);
+```
+
+The hash is `sha256(gtin + serialNumber)`. Material keys are automatically prefixed with `mat_`; certification keys with `cert_`. The serial number is hashed as `uv_url_serial`. Update policy is set to `restricted`.
+
+### issueLaboratoryReport
+
+```ts
+const result = await client.apps.issueLaboratoryReport(address, [
+  {
+    reportId: 'BMD-2024-10-00123',
+    patientName: 'Sophie Wagner',
+    labName: 'Berlin Medical Diagnostics GmbH',
+    contact: 'results@bmd-lab.example',
+    auditable: true,
+    values: {
+      glucose: '5.4 mmol/L',
+      hba1c: '5.7%',
+      cholesterol: '4.9 mmol/L',
+    },
+  },
+]);
+
+for (const cert of result.certificates) {
+  // verifyUrl includes ?name=&report_id= to reveal patient name and report ID
+  console.log(`${cert.patientName} / ${cert.reportId}: ${cert.verifyUrl}`);
+}
+```
+
+The hash is `sha256(reportId)`. Value keys are automatically prefixed with `a_`. Both patient name and report ID are hashed (`uv_url_name`, `uv_url_report_id`) and revealed via URL parameters. Update policy is set to `first`.
+
+---
+
 ## Error handling
 
 ```ts
@@ -177,6 +282,14 @@ try {
 | `getUserInfo(address, signMessage?)` | Retrieve the current user state |
 | `invalidateState(address, stateId, signMessage?)` | Mark a state as invalid |
 | `optOut(address, stateId, signMessage?)` | Remove the user's state entirely |
+
+### Application helpers (`.apps`)
+
+| Method | Description |
+|--------|-------------|
+| `apps.issueDiploma(address, diplomas[], signTx?)` | Issue one or more diploma certificates; returns `{ txHash, certificates[] }` |
+| `apps.issueDigitalProductPassport(address, product, signTx?)` | Issue a Digital Product Passport; returns `{ txHash, hash, verifyUrl }` |
+| `apps.issueLaboratoryReport(address, reports[], signTx?)` | Issue one or more lab report certificates; returns `{ txHash, certificates[] }` |
 
 ### Low-level core (`.core`)
 

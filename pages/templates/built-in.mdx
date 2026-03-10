@@ -37,7 +37,7 @@ A formatted diploma certificate layout. Designed for academic credentials, award
 
 **What it shows:**
 - Institution name (from `issuer`)
-- Recipient name (from `name`)
+- Recipient name (revealed via `?name=` URL parameter)
 - Degree or award title (from `title`)
 - Optional description (from `description`)
 - Optional decorative background pattern (from `pattern`)
@@ -49,7 +49,7 @@ A formatted diploma certificate layout. Designed for academic credentials, award
 |---|---|
 | `uverify_template_id` | Must be `"diploma"` |
 | `issuer` | Name of the issuing institution |
-| `name` | Name of the recipient |
+| `uv_url_name` | SHA-256 hash of the recipient's name (plain value passed via `?name=` URL parameter — never stored on-chain) |
 | `title` | Degree, award, or certification title |
 
 **Optional metadata fields:**
@@ -58,17 +58,194 @@ A formatted diploma certificate layout. Designed for academic credentials, award
 |---|---|
 | `description` | Additional text or HTML displayed below the title |
 | `pattern` | SVG pattern string for the certificate background |
+| `uverify_update_policy` | Controls subsequent updates. Default: `first` (initial issuance is permanent) |
+
+**Privacy note:** the `uv_url_*` convention stores only a hash on-chain. The plain value is appended as a URL parameter when sharing the verification link and is never written to the blockchain.
 
 **Example:**
 ```json
 {
   "uverify_template_id": "diploma",
+  "uverify_update_policy": "first",
   "issuer": "University of Example",
-  "name": "Jane Doe",
+  "uv_url_name": "<sha256('Jane Doe')>",
   "title": "Master of Science in Computer Science",
   "description": "Awarded with distinction, June 2024"
 }
 ```
+
+The easiest way to issue diplomas is via the SDK `apps` helper, which handles hashing and URL construction automatically — see [TypeScript SDK → Application helpers](../sdk/typescript#application-helpers-apps).
+
+---
+
+## digitalProductPassport
+
+A full Digital Product Passport (DPP) layout for manufactured goods. Designed for EU-compliant product transparency, sustainability data, and end-of-life instructions.
+
+**What it shows:**
+- Product name, manufacturer, model, and GTIN
+- Serial number (revealed via `?serial=` URL parameter)
+- Origin, manufacture date, and brand colour
+- Carbon footprint, recycled content, and energy class
+- Warranty, spare parts availability, and repair information
+- Recycling instructions
+- Material composition (`mat_*` keys) and certifications (`cert_*` keys)
+- Blockchain verification proof
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"digitalProductPassport"` |
+| `name` | Product name |
+| `issuer` | Manufacturer name |
+| `gtin` | Global Trade Item Number |
+| `uv_url_serial` | SHA-256 hash of the serial number (plain value passed via `?serial=` URL parameter) |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `model` | Model identifier |
+| `origin` | Country of origin |
+| `manufactured` | Production date (ISO 8601) |
+| `contact` | Contact email or URL |
+| `brand_color` | Brand hex colour for UI theming (e.g. `#1a56db`) |
+| `carbon_footprint` | Carbon footprint value and unit |
+| `recycled_content` | Percentage of recycled content |
+| `energy_class` | Energy efficiency class |
+| `warranty` | Warranty period description |
+| `spare_parts` | Spare parts availability note |
+| `repair_info` | URL or description of repair instructions |
+| `recycling` | End-of-life recycling instructions |
+| `mat_<key>` | Material composition entry (e.g. `mat_aluminum: "45%"`) |
+| `cert_<key>` | Certification entry (e.g. `cert_ce: "CE Marking"`) |
+| `uverify_update_policy` | Controls subsequent updates. Default: `restricted` (issuer-only updates) |
+
+**Hash convention:** the on-chain hash should be `sha256(gtin + serialNumber)` to uniquely identify this product instance.
+
+**Example:**
+```json
+{
+  "uverify_template_id": "digitalProductPassport",
+  "uverify_update_policy": "restricted",
+  "name": "EcoCharge Powerbank Pro 200",
+  "issuer": "GreenTech AG",
+  "gtin": "04012345678901",
+  "uv_url_serial": "<sha256('EC200-SN-20240815-00847')>",
+  "model": "EC-200-2024",
+  "origin": "Germany",
+  "carbon_footprint": "1.2 kg CO₂e",
+  "recycled_content": "38%",
+  "energy_class": "A++",
+  "warranty": "3 years",
+  "mat_aluminum": "45%",
+  "mat_recycled_plastic": "38%",
+  "cert_ce": "CE Marking",
+  "cert_rohs": "RoHS Compliant"
+}
+```
+
+The easiest way to issue Digital Product Passports is via the SDK `apps` helper — see [TypeScript SDK → Application helpers](../sdk/typescript#application-helpers-apps).
+
+---
+
+## laboratoryReport
+
+A laboratory report certificate layout. Designed for clinical and research labs issuing verifiable test results to patients or auditors.
+
+**What it shows:**
+- Laboratory name (from `issuer`) and contact
+- Patient name (revealed via `?name=` URL parameter)
+- Report ID (revealed via `?report_id=` URL parameter)
+- Measured values (all `a_*` keys displayed as a results table)
+- Auditable flag — when `true`, all values are visible on the certificate
+- Blockchain verification proof
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"laboratoryReport"` |
+| `issuer` | Name of the issuing laboratory |
+| `uv_url_name` | SHA-256 hash of the patient's name (plain value passed via `?name=` URL parameter) |
+| `uv_url_report_id` | SHA-256 hash of the report ID (plain value passed via `?report_id=` URL parameter) |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `contact` | Lab contact email or URL |
+| `auditable` | `"true"` or `"false"` — whether measured values are displayed on the certificate (default: `"false"`) |
+| `a_<key>` | A measured value entry (e.g. `a_glucose: "5.4 mmol/L"`) |
+| `uverify_update_policy` | Controls subsequent updates. Default: `first` (initial issuance is permanent) |
+
+**Hash convention:** the on-chain hash should be `sha256(reportId)`.
+
+**Example:**
+```json
+{
+  "uverify_template_id": "laboratoryReport",
+  "uverify_update_policy": "first",
+  "issuer": "Berlin Medical Diagnostics GmbH",
+  "contact": "results@bmd-lab.example",
+  "uv_url_name": "<sha256('Sophie Wagner')>",
+  "uv_url_report_id": "<sha256('BMD-2024-10-00123')>",
+  "auditable": "true",
+  "a_glucose": "5.4 mmol/L",
+  "a_hba1c": "5.7%",
+  "a_cholesterol": "4.9 mmol/L"
+}
+```
+
+The easiest way to issue laboratory reports is via the SDK `apps` helper — see [TypeScript SDK → Application helpers](../sdk/typescript#application-helpers-apps).
+
+---
+
+## petNecklace
+
+A lost-pet necklace certificate. When an NFC chip and the on-chain hash are combined, the owner's contact information is revealed. No database, no server — GDPR-safe by design.
+
+**What it shows:**
+- Pet name and species/breed
+- Owner name (revealed via `?owner_name=` URL parameter)
+- Owner phone number (revealed via `?phone=` URL parameter)
+- Optional note for the finder
+- Blockchain verification proof
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"petNecklace"` |
+| `pet_name` | Name of the pet |
+| `uv_url_owner_name` | SHA-256 hash of the owner's name (plain value passed via `?owner_name=` URL parameter) |
+| `uv_url_phone` | SHA-256 hash of the owner's phone number (plain value passed via `?phone=` URL parameter) |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `species` | Pet species (e.g. `"dog"`, `"cat"`) |
+| `breed` | Breed description |
+| `note` | A short message for the finder |
+| `uverify_update_policy` | Controls subsequent updates. Default: `restricted` (only the issuer wallet can push updates, e.g. when the phone number changes) |
+
+**Example:**
+```json
+{
+  "uverify_template_id": "petNecklace",
+  "uverify_update_policy": "restricted",
+  "pet_name": "Luna",
+  "species": "dog",
+  "breed": "Golden Retriever",
+  "uv_url_owner_name": "<sha256('Max Mustermann')>",
+  "uv_url_phone": "<sha256('+49 151 23456789')>",
+  "note": "Luna is friendly and microchipped. Please call immediately!"
+}
+```
+
+See the [Pet Necklace use case](../use-cases/pet-necklace) for a full walkthrough.
 
 ---
 

@@ -83,3 +83,174 @@ html.dark .nextra-footer {
 html.dark footer hr {
   display: none;
 }
+
+/* ── Swagger UI dark theme overrides ──────────────────────────────────────── *
+ * swagger-ui-react ships its own light-mode CSS. These rules re-skin it for  *
+ * the forced-dark Nextra environment.                                         */
+
+html.dark .swagger-ui,
+html.dark .swagger-ui .wrapper,
+html.dark .swagger-ui .opblock-tag-section {
+  background: transparent;
+}
+
+/* Info block */
+html.dark .swagger-ui .info .title,
+html.dark .swagger-ui .info p,
+html.dark .swagger-ui .info li,
+html.dark .swagger-ui .info a,
+html.dark .swagger-ui .info .base-url {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Tag group headers */
+html.dark .swagger-ui .opblock-tag {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+html.dark .swagger-ui .opblock-tag:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+html.dark .swagger-ui .opblock-tag small {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Operation blocks — keep badge colours, darken backgrounds */
+html.dark .swagger-ui .opblock {
+  box-shadow: none;
+}
+html.dark .swagger-ui .opblock .opblock-summary {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+html.dark .swagger-ui .opblock .opblock-summary-description {
+  color: rgba(255, 255, 255, 0.7);
+}
+html.dark .swagger-ui .opblock-summary-path,
+html.dark .swagger-ui .opblock-summary-path__deprecated {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+html.dark .swagger-ui .opblock.opblock-get    { background: rgba(97,  175, 254, 0.07); border-color: rgba(97,  175, 254, 0.35); }
+html.dark .swagger-ui .opblock.opblock-post   { background: rgba(73,  204, 144, 0.07); border-color: rgba(73,  204, 144, 0.35); }
+html.dark .swagger-ui .opblock.opblock-put    { background: rgba(252, 161, 48,  0.07); border-color: rgba(252, 161, 48,  0.35); }
+html.dark .swagger-ui .opblock.opblock-delete { background: rgba(249, 62,  62,  0.07); border-color: rgba(249, 62,  62,  0.35); }
+html.dark .swagger-ui .opblock.opblock-patch  { background: rgba(80,  227, 194, 0.07); border-color: rgba(80,  227, 194, 0.35); }
+
+/* Expanded operation body */
+html.dark .swagger-ui .opblock-body {
+  background: rgba(0, 0, 0, 0.18);
+}
+html.dark .swagger-ui .opblock-section-header {
+  background: rgba(255, 255, 255, 0.06);
+}
+html.dark .swagger-ui .opblock-section-header h4,
+html.dark .swagger-ui .opblock-section-header label {
+  color: rgba(255, 255, 255, 0.85);
+}
+html.dark .swagger-ui .opblock-description-wrapper p,
+html.dark .swagger-ui .opblock-external-docs-wrapper p,
+html.dark .swagger-ui .opblock-title_normal p {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Parameters table */
+html.dark .swagger-ui table thead tr th,
+html.dark .swagger-ui .col_header {
+  color: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+html.dark .swagger-ui .parameter__name,
+html.dark .swagger-ui .parameter__type,
+html.dark .swagger-ui .parameter__in {
+  color: rgba(255, 255, 255, 0.85);
+}
+html.dark .swagger-ui .parameter__deprecated {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Responses */
+html.dark .swagger-ui .responses-inner h4,
+html.dark .swagger-ui .responses-inner h5,
+html.dark .swagger-ui .response-col_status,
+html.dark .swagger-ui .response-col_links,
+html.dark .swagger-ui .response-col_description,
+html.dark .swagger-ui .response-control-media-type__title,
+html.dark .swagger-ui .content-type {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Schema / models */
+html.dark .swagger-ui section.models {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+html.dark .swagger-ui section.models h4,
+html.dark .swagger-ui .models-control,
+html.dark .swagger-ui .model-title {
+  color: rgba(255, 255, 255, 0.9);
+}
+html.dark .swagger-ui .model-container,
+html.dark .swagger-ui .model-box {
+  background: rgba(255, 255, 255, 0.04);
+}
+html.dark .swagger-ui .model span,
+html.dark .swagger-ui .model .property.primitive {
+  color: rgba(255, 255, 255, 0.7);
+}
+html.dark .swagger-ui .prop-type,
+html.dark .swagger-ui .prop-format {
+  color: rgb(97, 175, 254);
+}
+
+/* Markdown text */
+html.dark .swagger-ui .markdown p,
+html.dark .swagger-ui .markdown li,
+html.dark .swagger-ui .tab li {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Scheme container */
+html.dark .swagger-ui .scheme-container {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+html.dark .swagger-ui .scheme-container .schemes > label,
+html.dark .swagger-ui .servers > label,
+html.dark .swagger-ui .servers-title {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Form controls */
+html.dark .swagger-ui input[type=text],
+html.dark .swagger-ui input[type=password],
+html.dark .swagger-ui input[type=search],
+html.dark .swagger-ui textarea {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+html.dark .swagger-ui select {
+  background: rgb(10, 18, 35);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Buttons */
+html.dark .swagger-ui .btn {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.85);
+}
+html.dark .swagger-ui .btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* SVG icons (arrows, lock, etc.) */
+html.dark .swagger-ui svg.arrow,
+html.dark .swagger-ui .expand-methods svg,
+html.dark .swagger-ui .expand-operation svg,
+html.dark .swagger-ui .authorization__btn,
+html.dark .swagger-ui .unlocked {
+  fill: rgba(255, 255, 255, 0.6);
+}
+html.dark .swagger-ui .locked {
+  fill: rgba(255, 255, 255, 0.9);
+}
