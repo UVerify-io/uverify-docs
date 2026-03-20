@@ -109,5 +109,5 @@ Have a use case in mind? We'd love to hear it.
 
 - [Email Us](mailto:hello@uverify.io)
 - [Join Our Discord](https://discord.gg/Dvqkynn6xc)
-- [Follow Us on X](https://x.com/UVer1fy)
+- [Follow Us on X](https://x.com/uvfyhq)
 - [Connect on LinkedIn](https://www.linkedin.com/company/uverify-io)
