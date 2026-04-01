@@ -5,6 +5,7 @@ export default {
   'self-hosting': 'Self-Hosting',
   templates: 'Custom Templates',
   platform: 'UVerify as a Platform',
+  extensions: 'Extensions',
   pricing: 'Pricing',
   'api-docs': 'API Docs',
   sdk: 'SDK',
