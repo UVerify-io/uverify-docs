@@ -1,0 +1,50 @@
+# UVerify Documentation
+
+> Full developer and platform documentation for UVerify — an open-source document notarization and certificate platform on the Cardano blockchain. Covers the REST API, TypeScript/Python/Java SDKs, custom UI templates, the Bootstrap Datum platform model, and self-hosting.
+
+## Getting Started
+
+- [Getting Started](https://docs.uverify.io): Three paths — use the web app, automate with the API, or build on top of UVerify as a platform
+- [How It Works](https://docs.uverify.io/concepts): Hash-not-file privacy model, certificate as a dapp, fee system, privacy-split patterns
+
+## API
+
+- [API Docs](https://docs.uverify.io/api-docs): Full REST API reference (Swagger). Public instance at api.uverify.io — no API key, no rate limits
+- [Pricing](https://docs.uverify.io/pricing): Cardano network fees, UVerify service fees, fee sponsorship program
+
+## SDK
+
+- [TypeScript SDK](https://docs.uverify.io/sdk/typescript): @uverify/sdk — install via npm, covers notarization, verification, and all high-level app methods
+- [Python SDK](https://docs.uverify.io/sdk/python): uverify-sdk — install via pip or uv, same method surface as TypeScript
+- [Java SDK](https://docs.uverify.io/sdk/java): io.uverify:uverify-sdk — Maven artifact, JBang compatible
+
+## Use Cases
+
+- [Academic Credentials](https://docs.uverify.io/use-cases/academic-credentials): Verifiable diplomas and transcripts
+- [Product Passports](https://docs.uverify.io/use-cases/product-passports): On-chain digital product passports for physical goods
+- [Legal Documents](https://docs.uverify.io/use-cases/legal-documents): Tamper-proof notarization of contracts and legal files
+- [Connected Goods](https://docs.uverify.io/use-cases/connected-goods): NFC-linked on-chain certificates
+- [Pet Necklace](https://docs.uverify.io/use-cases/pet-necklace): Privacy-split pattern using NFC chip and on-chain hash
+- [Private Chain Attestations](https://docs.uverify.io/use-cases/private-chain-attestations): Anchoring private chain state to Cardano mainnet
+
+## Platform
+
+- [UVerify as a Platform](https://docs.uverify.io/platform): White-labelling, custom branding, fee structures
+- [Bootstrap Datum](https://docs.uverify.io/platform/bootstrap-datum): Root configuration object — controls access, fees, batch size, and unlocked templates
+- [State Datum](https://docs.uverify.io/platform/state-datum): Per-user on-chain session forked from a Bootstrap Datum
+- [Custom UI Templates](https://docs.uverify.io/platform/custom-ui-templates): Registering and deploying custom certificate templates
+
+## Templates
+
+- [Built-in Templates](https://docs.uverify.io/templates/built-in): Default, Monochrome, Diploma, ProductVerification, SocialHub, and more
+- [Building a Template](https://docs.uverify.io/templates/building-a-template): Extend the abstract Template class with @uverify/cli
+
+## Extensions
+
+- [Extensions Overview](https://docs.uverify.io/extensions): Optional on-chain capabilities beyond basic notarization
+- [Tokenizable Certificate](https://docs.uverify.io/extensions/tokenizable-certificate): CIP-68 NFT minting from a certificate — sorted linked list on-chain, one-shot minting policy
+- [Fractionized Certificate](https://docs.uverify.io/extensions/fractionized-certificate): Split certificate ownership across multiple token holders
+
+## Self-Hosting
+
+- [Self-Hosting](https://docs.uverify.io/self-hosting): Run the backend (Spring Boot) and frontend (React) yourself — both are open source on GitHub
