@@ -1,0 +1,200 @@
+import { Callout } from 'nextra/components';
+
+# Simulation & Fee Calculation
+
+The sandbox simulator answers two questions before you go to production:
+
+1. **Does my template hold up against realistic data?** Instead of hand-typing metadata, you describe the fields once in a plan file and generate hundreds of varied certificates.
+2. **What will issuance cost?** Every submitted transaction's fee is extracted from the transaction body and recorded, so you can measure the real cost of your metadata shape and batch size.
+
+Two Deno scripts do the work. `generate.ts` turns a plan into metadata files, and `submit.ts` issues them on-chain and records fees. The `sandbox.py simulate` command orchestrates both.
+
+## Quick start
+
+```bash
+cd uverify-examples
+
+# From a plan file: generate 500 metadata files, submit 5 per transaction
+uv run sandbox.py simulate \
+  --template productVerification \
+  --plan sandbox/simulator/plan.example.json \
+  --amount 500 \
+  --batch-size 5
+
+# Synthetic load test, no plan file needed
+uv run sandbox.py simulate \
+  --template productVerification \
+  --number 100 \
+  --batch-size 10
+```
+
+| Flag | Required | Description |
+|---|---|---|
+| `--template` | yes | UVerify template ID (e.g. `productVerification`, `diploma`) |
+| `--plan` | one of | Path to a plan JSON file |
+| `--number` | one of | Number of synthetic certificates (no plan needed) |
+| `--amount` | with `--plan` | Number of metadata files to generate |
+| `--batch-size` | no | Certificates per transaction (default: 1) |
+| `--output` | no | Directory for generated files (default: `sandbox/simulator/output`) |
+
+`--plan` and `--number` are mutually exclusive. On the first run the simulator generates a wallet, saves it to `wallet.txt`, and funds it from the sandbox faucet automatically.
+
+## Plan files — dynamic metadata
+
+A plan is a JSON object where each key becomes a metadata field and the value describes how to generate it. This is how you produce varied, realistic certificates instead of 500 identical ones.
+
+```json
+{
+  "issuerName": {
+    "type": "static",
+    "value": "Cardano Foundation"
+  },
+  "badgeName": {
+    "type": "one-of",
+    "values": [
+      "Blockchain Fundamentals",
+      "Smart Contract Development with Aiken",
+      "Cardano Decentralized Governance"
+    ]
+  },
+  "serialNumber": {
+    "type": "random-string",
+    "regex": "[A-Z]{2}[0-9]{6}-[A-Z]{4}"
+  },
+  "productionYear": {
+    "type": "random-number",
+    "range": { "min": 2018, "max": 2025 }
+  },
+  "auditable": {
+    "type": "random-bool"
+  }
+}
+```
+
+Ready-made plans ship with the sandbox in `sandbox/simulator/`: `plan.example.json` (generic), `plan.vin.json` (vehicle identification numbers) and `plan.cardano-academy-certificate.json` (course badges). Custom `plan.*.json` files are gitignored, so your scenarios stay local.
+
+### Field types
+
+#### `static`
+
+Always emits the same value (string, number, or boolean).
+
+```json
+{ "type": "static", "value": "Acme Corp" }
+```
+
+#### `one-of`
+
+Samples uniformly from a fixed list.
+
+```json
+{ "type": "one-of", "values": ["active", "pending", "archived"] }
+```
+
+#### `random-bool`
+
+Emits `true` or `false` with equal probability.
+
+```json
+{ "type": "random-bool" }
+```
+
+#### `random-number`
+
+Emits a random integer in `[min, max]` inclusive.
+
+```json
+{ "type": "random-number", "range": { "min": 2015, "max": 2025 } }
+```
+
+#### `random-string`
+
+Emits a string generated from a regex-like template.
+
+```json
+{ "type": "random-string", "regex": "[A-Z]{2}[0-9]{6}-[A-Z]{4}" }
+```
+
+| Token | Meaning |
+|---|---|
+| `[A-Z]` `[0-9]` `[abc]` | Character class with ranges or literals |
+| `.` | Any alphanumeric character |
+| `{n}` | Repeat exactly n times |
+| `{n,m}` | Repeat between n and m times (random) |
+| `+` | One or more (up to 10) |
+| `*` | Zero or more (up to 9) |
+| literal | Emitted as-is (e.g. the `-` in `[A-Z]{2}-[0-9]{4}`) |
+
+### Generated output
+
+Each generated metadata file is named by the SHA-256 hash of its JSON content. That hash is also what gets certified on-chain, so identical outputs de-duplicate automatically and the verification URL for any file is `http://localhost:3000/verify/<filename-without-.json>`.
+
+## Fee calculation
+
+`submit.ts` builds each transaction through the regular `/api/v1/transaction/build` endpoint, reads the fee directly from the unsigned transaction body, and records it per transaction. After the run (or after every confirmed transaction, so interrupted runs lose nothing) it writes `sandbox/simulator/results.json`:
+
+```json
+{
+  "summary": {
+    "totalTransactions": 100,
+    "totalCertificates": 500,
+    "totalFeeLovelace": 25000000,
+    "totalFeeAda": 25.0
+  },
+  "transactions": [
+    {
+      "txHash": "abc123…",
+      "certHashes": ["def456…", "…"],
+      "feeLovelace": 250000,
+      "feeAda": 0.25
+    }
+  ]
+}
+```
+
+Because the fee comes from the actual transaction CBOR, it reflects everything that drives cost on a real network: metadata size, batch size, and script execution. The sandbox devnet runs with standard Cardano protocol parameters, so the recorded fees are a close approximation of what the same workload costs on preprod or mainnet.
+
+### Finding your optimal batch size
+
+Batching amortizes the fixed transaction overhead across certificates, so cost per certificate drops as `--batch-size` grows. Run the same plan with different batch sizes and compare `totalFeeAda / totalCertificates`:
+
+```bash
+for size in 1 5 10 20; do
+  uv run sandbox.py simulate --template diploma \
+    --plan my-plan.json --amount 100 --batch-size $size
+  cp sandbox/simulator/results.json results-batch-$size.json
+done
+```
+
+Two limits cap how far you can push this:
+
+- **`batch_size` in the Bootstrap Datum.** The on-chain validator rejects transactions with more certificates than the state's configured batch size. See [Bootstrap Datum](../platform/bootstrap-datum).
+- **Execution unit budget.** The validator's cost grows quadratically with the total certificate payload in a transaction, so very large batches with heavy metadata exhaust the per-transaction ExUnits budget before they hit the `batch_size` limit. In practice this caps batches at roughly 5 to 60 certificates depending on metadata size.
+
+The simulator surfaces both: a rejected build shows up as an error for that batch, and the per-transaction fees show where the sweet spot lies.
+
+<Callout type="info">
+  Simulated certificates are real on-chain certificates on the devnet. Open any `txHash` from `results.json` in the Yaci Viewer at http://localhost:3001, or open a certificate hash in the UI to see it rendered with your template.
+</Callout>
+
+## Running the scripts directly
+
+If you prefer to skip `sandbox.py`:
+
+```bash
+cd sandbox/simulator
+
+deno run --allow-read --allow-write generate.ts \
+  --data plan.json \
+  --amount 500 \
+  --destination ./output
+
+deno run -A submit.ts \
+  --template productVerification \
+  --input ./output \
+  --batch-size 5
+```
+
+### Re-entrancy
+
+`submit.ts` records progress in `results.json` after every confirmed transaction. Re-running the same command skips already-submitted certificate hashes and picks up where it left off, so an interrupted load test can simply be restarted.

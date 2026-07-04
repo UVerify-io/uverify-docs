@@ -1,0 +1,103 @@
+import { Callout } from 'nextra/components';
+
+# Local Sandbox
+
+The sandbox is a self-contained UVerify environment backed by a local Cardano devnet. It starts from a pre-built chain snapshot that already has the UVerify contracts deployed and funded, so there is nothing to bootstrap. Blocks are produced locally every few seconds, the faucet is enabled, and all mnemonics are publicly known test wallets.
+
+Use it to develop custom templates, test SDK integrations, run load simulations, and experiment with extensions without spending test ADA or waiting for preprod block times.
+
+## Prerequisites
+
+| Tool | Needed for |
+|---|---|
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) 24+ | All sandbox services |
+| [uv](https://docs.astral.sh/uv/) | The `sandbox.py` CLI (dependencies install automatically) |
+| [Deno](https://deno.com) 2+ | The [simulator](./sandbox/simulation) and TypeScript examples (optional) |
+| Node.js 18+ | Scaffolding custom templates (optional) |
+
+## Quick start
+
+```bash
+git clone https://github.com/UVerify-io/uverify-examples.git
+cd uverify-examples
+uv run sandbox.py start
+```
+
+The first start seeds the chainstate from the bundled snapshot, brings up all services, waits for the block producer, and advances the devnet chain to wall-clock time. After that, open http://localhost:3000 and connect the demo wallet to issue your first certificate.
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `uv run sandbox.py start` | Start all sandbox services |
+| `uv run sandbox.py start --clean` | Wipe all data and start fresh from the snapshot |
+| `uv run sandbox.py start --keria` | Also start the KERI identity stack (witnesses, KERIA agent, vLEI server and verifier) |
+| `uv run sandbox.py stop` | Stop all services |
+| `uv run sandbox.py restart [--keria]` | Restart all services |
+| `uv run sandbox.py info` | Show container status and URLs |
+| `uv run sandbox.py templates` | List registered custom UI templates |
+| `uv run sandbox.py template add <Name>` | Scaffold and register a custom UI template |
+| `uv run sandbox.py template rm <name>` | Remove a custom UI template |
+| `uv run sandbox.py simulate …` | Generate and submit certificates in bulk, recording fees |
+
+## Services
+
+| Service | URL | Purpose |
+|---|---|---|
+| UVerify UI | http://localhost:3000 | The dApp, built with your custom templates |
+| UVerify Backend | http://localhost:9090 | REST API, indexer, faucet |
+| API docs (Swagger) | http://localhost:9090/swagger-ui/index.html | Interactive API reference |
+| Yaci Viewer | http://localhost:3001 | Block explorer for the devnet |
+| Yaci Store API | http://localhost:8080 | Chain indexer with rich UTxO queries |
+| Yano devnet API | http://localhost:7070/q/swagger-ui | The Cardano devnet node |
+| PostgreSQL | localhost:5432 | Backend database (`uverify` / `sandbox_password`) |
+
+With `--keria` the identity stack is added on top. See the [KERIA walkthrough](./identity/keria-walkthrough) for the extra services and a full identity credential tutorial.
+
+## Funding wallets
+
+The backend faucet is enabled in the sandbox. From the SDK, fund any wallet with:
+
+```ts
+const txHash = await client.fundWallet(address);
+await client.waitFor(txHash);
+```
+
+The faucet uses a challenge-and-sign flow, so the client needs a `signMessage` callback. The UI demo wallet funds itself automatically when its balance is too low.
+
+<Callout type="warning">
+  All mnemonics in the sandbox `.env` are publicly known test wallets for the local devnet only. Never use them on preprod or mainnet.
+</Callout>
+
+## Custom templates in the sandbox
+
+The sandbox UI container builds with any templates registered under `sandbox/custom-ui-templates/`. The `template add` command scaffolds a new template with `@uverify/cli` and registers it in one step:
+
+```bash
+uv run sandbox.py template add MyBadge
+uv run sandbox.py restart
+```
+
+The [step-by-step tutorial](./templates/step-by-step-tutorial) walks through the full cycle from scaffold to a rendered certificate.
+
+## Simulation and fee calculation
+
+`sandbox.py simulate` generates certificate metadata from a plan file and submits it in batches, recording the exact fee of every transaction. See [Simulation & Fee Calculation](./sandbox/simulation).
+
+## Resetting and troubleshooting
+
+```bash
+uv run sandbox.py start --clean   # wipe chainstate, database and indexes, reseed from snapshot
+```
+
+View logs for a specific service:
+
+```bash
+docker compose -f sandbox/docker-compose.yml logs -f uverify-backend
+```
+
+If yaci-store stops showing recent transactions after a long pause, restart it:
+
+```bash
+docker compose -f sandbox/docker-compose.yml restart yaci-store
+```
