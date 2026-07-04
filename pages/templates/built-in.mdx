@@ -1,6 +1,6 @@
 # Built-in Templates
 
-UVerify ships with six built-in templates. You activate a template by setting the `uverify_template_id` field in your certificate metadata at notarization time.
+UVerify ships with the built-in templates below. You activate a template by setting the `uverify_template_id` field in your certificate metadata at notarization time.
 
 ## default
 
@@ -310,6 +310,131 @@ Product authentication with support for asymmetric NFC chip verification.
 **Whitelist:** this template is restricted to specific issuer addresses. Contact the UVerify team to enable it for your account.
 
 **Asymmetric NFC:** this template uses the [`@uverify/asymmetric-nfc`](https://github.com/UVerify-io/asymmetric-nfc) library. The NFC chip holds a private key and signs a server challenge; the certificate page verifies the signature against the public key stored on-chain. This proves physical possession of the genuine chip, not just knowledge of the URL.
+
+---
+
+## certificateOfInsurance
+
+A Certificate of Insurance (COI) layout with a validity badge driven by the policy dates. All personal data uses the `uv_url_*` privacy pattern.
+
+**What it shows:**
+- Issuing insurance company and optional broker
+- Insured name and address (revealed via URL parameters)
+- Policy number, effective and expiration dates, with a VALID / EXPIRED badge
+- Certificate holder details (revealed via URL parameters)
+- Coverage limits (all `cov_*` keys displayed as a table)
+- Additional insured and waiver of subrogation flags
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"certificateOfInsurance"` |
+| `issuer` | Issuing insurance company name |
+| `uv_url_insured` | SHA-256 hash of the insured's name (plain value passed via URL parameter) |
+| `policy_number` | Policy reference number |
+| `effective_date` | Policy start date (ISO format, e.g. `2025-01-01`) |
+| `expiration_date` | Policy end date (ISO format) — drives the VALID/EXPIRED badge |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `producer` | Insurance broker or agent name |
+| `uv_url_insured_address` | SHA-256 hash of the insured's address |
+| `uv_url_certificate_holder` | SHA-256 hash of the certificate holder's name |
+| `uv_url_certificate_holder_address` | SHA-256 hash of the certificate holder's address |
+| `additional_insured` | `"true"` or `"false"` — whether the certificate holder is an additional insured |
+| `waiver_of_subrogation` | `"true"` or `"false"` — whether a waiver of subrogation applies |
+| `cov_<key>` | A coverage limit entry (e.g. `cov_general_liability: "$2,000,000"`) |
+| `uverify_update_policy` | Controls subsequent updates. Default: `restricted` (issuer-only updates) |
+
+The easiest way to issue certificates of insurance is via the SDK `apps` helper — see [TypeScript SDK → Application helpers](../sdk/typescript#application-helpers-apps).
+
+---
+
+## documentIntegrity
+
+A file-drop verification page. The verifier obtains the original file (from a file share, an email attachment, anywhere), drops it onto the certificate page, and the page confirms whether the file's SHA-256 hash matches the on-chain record. The file itself never leaves the verifier's device.
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"documentIntegrity"` |
+| `issuer` | Name of the person or organization who certified the file |
+| `title` | Document title shown to the verifier (e.g. `"Master Thesis"`) |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uv_url_filename` | SHA-256 hash of the expected filename (plain value passed via `?filename=` URL parameter) |
+| `location` | URL or path where the verifier can obtain the file |
+| `file_size` | File size in bytes |
+| `file_type` | MIME type or human-readable format description (e.g. `"application/zip"`) |
+| `file_hint` | Note about the file (e.g. `"ZIP archive, not password protected"`) |
+| `description` | Custom verification instructions. If omitted, auto-generated from filename and location |
+| `uverify_update_policy` | Controls subsequent updates. Default: `first` |
+
+**Hash convention:** the on-chain hash is the SHA-256 of the file's content.
+
+---
+
+## agentReceipt
+
+A machine- and human-readable receipt for AI agent commerce, following the Legal Context Protocol (LCP). It anchors the legal terms an agent accepted at transaction time, including dispute resolution details for LCP Level 4.
+
+**Required metadata fields:**
+
+| Field | Description |
+|---|---|
+| `uverify_template_id` | Must be `"agentReceipt"` |
+| `terms` | HTTPS URL of the legal terms document (LCP: `terms`) |
+| `transaction_id` | Underlying commerce transaction ID |
+
+**Optional metadata fields:**
+
+| Field | Description |
+|---|---|
+| `termsFormat` | Format of the terms document: `markdown`, `json`, `pdf`, `plain`, `html` |
+| `acceptanceRequired` | `"true"` when explicit acceptance was required — signals LCP Level 3 |
+| `agent_name` | Display name of the agent |
+| `disputeResolution` | JSON string: `{ method, jurisdiction, contact, clauseId, source, catalog }` — signals LCP Level 4 |
+| `returns` | URL of a returns or claims API/process |
+| `contact` | JSON string: `{ legal, technical }` |
+| `api` | URL of a legal context API — signals LCP Level 4 |
+| `uverify_update_policy` | Controls subsequent updates. Default: `first` |
+
+The SDK `apps` helper `issueAgentReceipt` handles hashing and metadata assembly.
+
+---
+
+## identityAuth
+
+Renders KERI identity binding certificates (`uverify_template_id: "IdentityAuth"`, note the capital `I`). AUTH certificates show a verified credential card with the KERI AID, ACDC schema, OOBI endpoint and a verification badge. REVOKE certificates show a revocation notice.
+
+This template is part of the identity system — see [Identity & Credentials](../identity) for the concept and the [IdentityAuth Certificate](../identity/identity-auth-certificate) reference for all metadata fields.
+
+---
+
+## tokenizableCertificate
+
+A certified asset with NFT minting support. The issuer certifies an asset, and the designated owner can later redeem a CIP-68 NFT pair that proves ownership. Requires the `tokenizable-certificate` backend extension.
+
+**Metadata fields:** `asset_name`, `asset_class`, `issuer_name`, `ipfs_image`, `description`, `jurisdiction`, `asset_id`, `owner_address` (Bech32 address of the wallet that will receive the NFT).
+
+This template uses a custom transaction builder that calls the extension's `/build` endpoint instead of the standard certificate flow. See the [Tokenizable Certificate extension](../extensions/tokenizable-certificate) for the full lifecycle.
+
+---
+
+## fractionizedCertificate
+
+A fractionalized asset certificate: the certified asset is split into a fixed supply of fungible tokens that multiple wallets can claim. Requires the `fractionized-certificate` backend extension.
+
+**Metadata fields:** `asset_name`, `asset_class`, `issuer_name`, `ipfs_image`, `description`, `total_amount`, `asset_name_hex`, `init_utxo_tx_hash`, `init_utxo_output_index`, `claimants` (comma-separated hex payment key hashes, empty for open access).
+
+See the [Fractionized Certificate extension](../extensions/fractionized-certificate) for the full lifecycle.
 
 ---
 

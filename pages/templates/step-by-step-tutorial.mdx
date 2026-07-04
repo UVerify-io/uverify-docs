@@ -1,0 +1,166 @@
+import { Callout } from 'nextra/components';
+
+# Step-by-Step: Your First Custom Template
+
+This tutorial builds a custom certificate template from scratch and takes it all the way to a rendered on-chain certificate, using the [local sandbox](../sandbox) as the development environment. At the end you will also load-test the template with generated data and measure the issuance fees.
+
+If you want the API reference instead of a tutorial, see [Building a Custom Template](./building-a-template).
+
+## What you will build
+
+An **event badge** template: a card that shows an attendee's badge for a conference, with the event name, a badge tier, and the attendee's name kept off-chain via the `uv_url_*` privacy pattern.
+
+## Prerequisites
+
+- Docker Desktop 24+, [uv](https://docs.astral.sh/uv/), Node.js 18+
+- [Deno](https://deno.com) 2+ for the simulation step (optional)
+
+## Step 1 — Start the sandbox
+
+```bash
+git clone https://github.com/UVerify-io/uverify-examples.git
+cd uverify-examples
+uv run sandbox.py start
+```
+
+Wait until the URL table appears. The UI runs at http://localhost:3000.
+
+## Step 2 — Scaffold the template
+
+```bash
+uv run sandbox.py template add EventBadge
+```
+
+This runs `npx @uverify/cli init` under the hood, places the project in `sandbox/custom-ui-templates/`, and registers it in the sandbox's `additional-templates.json` in one step. Verify the registration:
+
+```bash
+uv run sandbox.py templates
+```
+
+## Step 3 — Write the template
+
+Open the scaffolded `Certificate.tsx` and replace it with:
+
+```tsx
+import {
+  Template,
+  type ThemeSettings,
+  type UVerifyCertificate,
+  type UVerifyCertificateExtraData,
+  type UVerifyMetadata,
+} from '@uverify/core';
+import type { JSX } from 'react';
+
+export default class EventBadge extends Template {
+  public name = 'EventBadge';
+  public defaultUpdatePolicy = 'first' as const;
+
+  public theme: Partial<ThemeSettings> = {
+    background: 'bg-gradient-to-br from-violet-950 via-slate-900 to-slate-950',
+  };
+
+  public layoutMetadata = {
+    event: 'Name of the event (e.g. "Cardano Summit 2026")',
+    tier: 'Badge tier: attendee, speaker, or organizer',
+    uv_url_attendee: 'Attendee name — stored as hash on-chain, revealed via ?attendee= URL param',
+    issued: 'Issue date (ISO 8601)',
+  };
+
+  public render(
+    hash: string,
+    metadata: UVerifyMetadata,
+    certificate: UVerifyCertificate | undefined,
+    pagination: JSX.Element,
+    extra: UVerifyCertificateExtraData,
+  ): JSX.Element {
+    if (extra.isLoading) {
+      return <div className="text-white/60 text-center mt-24">Loading…</div>;
+    }
+    if (extra.serverError) {
+      return <div className="text-red-400 text-center mt-24">Could not load certificate.</div>;
+    }
+    if (!certificate) {
+      return <div className="text-white/60 text-center mt-24">No certificate found for this hash.</div>;
+    }
+
+    const attendee = new URLSearchParams(window.location.search).get('attendee');
+
+    return (
+      <div className="max-w-md mx-auto mt-16 p-8 rounded-2xl bg-white/10 border border-white/20 text-white backdrop-blur-sm">
+        <p className="text-xs uppercase tracking-widest text-violet-300">
+          {String(metadata.tier ?? 'attendee')}
+        </p>
+        <h1 className="text-3xl font-bold mt-2">{String(metadata.event ?? 'Event')}</h1>
+        {attendee && <p className="mt-4 text-xl">{attendee}</p>}
+        <p className="mt-6 text-sm text-white/60">
+          Issued {String(metadata.issued ?? '')} · verified on Cardano
+        </p>
+        <p className="mt-2 text-xs font-mono text-white/40 break-all">TX: {certificate.transactionHash}</p>
+        <div className="mt-6">{pagination}</div>
+      </div>
+    );
+  }
+}
+```
+
+The pieces that matter:
+
+- **`layoutMetadata`** declares the fields the creation form shows. Only list fields the issuer actually types in. The `uv_url_` prefix tells the UI to hash the value before it goes on-chain (see [Building a Custom Template](./building-a-template#document-expected-metadata)).
+- **`defaultUpdatePolicy = 'first'`** locks the badge to its original submission. See [Update Policies](./update-policies) for all seven modes.
+- **`extra.isLoading` / `extra.serverError`** must be handled before you touch `certificate`, which is `undefined` until data arrives.
+
+## Step 4 — Apply and preview
+
+```bash
+uv run sandbox.py restart
+```
+
+The UI container rebuilds with your template included. Then:
+
+1. Open http://localhost:3000 and connect the **demo wallet** (it funds itself from the sandbox faucet).
+2. Start the creation flow and pick **EventBadge** from the template selector.
+3. The metadata form is pre-filled with your `layoutMetadata` fields. Fill them in — type the attendee's plain name into `uv_url_attendee`, the UI hashes it for you.
+4. Certify any text or file and sign with the demo wallet.
+
+After the transaction confirms, the certificate page renders your template. Append `?attendee=Jane%20Doe` to the URL to reveal the name.
+
+<Callout type="info">
+  The template ID is the class name with the first character lowercased: `EventBadge` becomes `uverify_template_id: "eventBadge"`. Certificates issued from the form set this automatically.
+</Callout>
+
+## Step 5 — Iterate
+
+Edit `Certificate.tsx`, then `uv run sandbox.py restart` to rebuild. Existing certificates re-render with the new code immediately, because the template lives in the UI, not on-chain. That is the core of the UVerify model: on-chain data is permanent, presentation is yours to evolve.
+
+## Step 6 — Load-test with realistic data
+
+Create a plan file that matches your `layoutMetadata` (see [Simulation & Fee Calculation](../sandbox/simulation) for the format):
+
+```json
+{
+  "event": { "type": "static", "value": "Cardano Summit 2026" },
+  "tier": { "type": "one-of", "values": ["attendee", "speaker", "organizer"] },
+  "issued": { "type": "one-of", "values": ["2026-06-10", "2026-06-11", "2026-06-12"] }
+}
+```
+
+Save it as `sandbox/simulator/plan.event-badge.json` and run:
+
+```bash
+uv run sandbox.py simulate \
+  --template eventBadge \
+  --plan sandbox/simulator/plan.event-badge.json \
+  --amount 200 \
+  --batch-size 5
+```
+
+The simulator issues 200 badges in batches of 5 and writes `sandbox/simulator/results.json` with the fee of every transaction. Open a few of the generated hashes in the UI to check your template against varied data, and use the fee summary to pick a batch size before going to production.
+
+## Step 7 — Going to production
+
+Your sandbox template folder is a normal `@uverify/cli` project. To ship it:
+
+- **On app.uverify.io:** push the template to a Git repository and open a PR against [`uverify-ui`](https://github.com/UVerify-io/uverify-ui) adding a `repository` entry with a pinned commit. Use the *Add External Template* issue template first.
+- **Self-hosted:** register it in your deployment's `additional-templates.json` and build with the `uverify/uverify-ui:custom` Docker image.
+
+Both paths are described in [Building a Custom Template](./building-a-template#registering-a-custom-template).

@@ -4,6 +4,8 @@ import { Callout } from 'nextra/components';
 
 If the built-in templates do not fit your use case, you can build your own. A custom template is a TypeScript class that controls the entire visual layout and behaviour of the certificate page for certificates issued from your account.
 
+Prefer a hands-on walkthrough? The [step-by-step tutorial](./step-by-step-tutorial) builds a template from scratch in the local sandbox, including load-testing it with generated data.
+
 Custom templates are licensed under **Apache 2.0**, separate from the UVerify core which is AGPL-3.0. You can build and distribute proprietary templates without any open-source obligations.
 
 ## Prerequisites
@@ -92,12 +94,17 @@ type UVerifyMetadata = {
 The on-chain certificate record. `undefined` when the hash is not found on-chain (i.e. the document has not been notarized, or the certificate is still loading).
 
 ```typescript
-type UVerifyCertificate = {
+interface UVerifyCertificate {
   hash: string;
-  algorithm: string;
-  issuer: string;       // Cardano address of the issuer
-  extra: string[];      // additional on-chain data
-};
+  address: string;
+  blockHash: string;
+  blockNumber: number;
+  transactionHash: string;
+  slot: number;
+  creationTime: number;  // Unix timestamp
+  metadata: string;      // raw JSON string of the on-chain metadata
+  issuer: string;        // Cardano payment credential of the issuer
+}
 ```
 
 ### `pagination: JSX.Element`
@@ -160,6 +167,61 @@ public layoutMetadata = {
   date: 'ISO 8601 date string',
 };
 ```
+
+## Advanced Template Properties
+
+### `defaultUpdatePolicy`
+
+Pre-selects an [update policy](./update-policies) in the creation UI for certificates issued with this template:
+
+```typescript
+public defaultUpdatePolicy = 'first' as const;
+```
+
+Use `first` for immutable credentials (diplomas, identity bindings), `restricted` for issuer-managed records (product passports), or leave it unset for the default `append` behaviour.
+
+### `requiredBackendExtensions`
+
+Hides the template in the creation UI unless the backend has the listed extensions enabled (checked via `GET /api/v1/extensions`):
+
+```typescript
+public requiredBackendExtensions = ['tokenizable-certificate'];
+```
+
+### `requiredCredentials`
+
+Hides the template unless the connected wallet holds an active credential of every listed type (checked via `GET /api/v1/credential/{issuer}?type={type}`):
+
+```typescript
+public requiredCredentials = ['ISO9001'];
+```
+
+Credentials are announced on-chain with an [IdentityAuth certificate](../identity/identity-auth-certificate) and can be revoked at any time, so this gate stays live without any off-chain admin work.
+
+### `buildTransaction`
+
+By default the creation page builds transactions through `POST /api/v1/transaction/build`. Templates that need a custom flow (for example calling an extension endpoint that mints tokens) can override the builder:
+
+```typescript
+import type { BuildTransactionParams } from '@uverify/core';
+
+public buildTransaction = async (params: BuildTransactionParams): Promise<string> => {
+  // params: { address, hash, metadata, bootstrapTokenName, backendUrl, searchParams }
+  const response = await fetch(`${params.backendUrl}/api/v1/transaction/build`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'default',
+      address: params.address,
+      certificates: [{ hash: params.hash, metadata: JSON.stringify(params.metadata) }],
+    }),
+  });
+  const { unsignedTransaction } = await response.json();
+  return unsignedTransaction; // hex-encoded CBOR, signed by the connected wallet
+};
+```
+
+`params.searchParams` carries the page's URL query parameters. Use it for runtime values that are not user-editable metadata (the built-in `tokenizableCertificate` template reads its init UTxO reference this way).
 
 ## Registering a Custom Template
 

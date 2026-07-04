@@ -1,0 +1,103 @@
+import { Callout } from 'nextra/components';
+
+# Update Policies
+
+The same hash can be certified more than once, by the same wallet or by different wallets. Update policies control what the certificate page shows in that case and who is allowed to add new entries. The policy is declared in metadata, resolved from the full on-chain history, and enforced at display time.
+
+<Callout type="info">
+  Update policies are a display-layer concept. Anyone can always submit a transaction that certifies a hash — the blockchain does not stop them. The policy determines which submissions the certificate page recognizes and presents to verifiers.
+</Callout>
+
+## The seven modes
+
+| Mode | Behaviour |
+|---|---|
+| `append` | Every submission adds a new page, navigable via pagination (default) |
+| `first` | Only the original submission is ever displayed |
+| `override` | Only the latest submission is displayed, silently replacing earlier ones |
+| `restricted` | All submissions display, but only entries from the policy owner are recognized |
+| `whitelist` | Only entries from a declared list of addresses are recognized |
+| `accumulate` | Recognized submissions are merged into one view. Updates may only add new metadata keys, never change existing ones |
+| `frozen` | No further submissions are recognized. The record is locked to its first entry |
+
+## Setting a policy
+
+Include `uverify_update_policy` in the metadata of the **first** submission:
+
+```json
+{
+  "uverify_template_id": "diploma",
+  "uverify_update_policy": "first",
+  "issuer": "University of Example",
+  "title": "Master of Science"
+}
+```
+
+Built-in templates declare a sensible default (`diploma` uses `first`, `digitalProductPassport` uses `restricted`), and custom templates can do the same via the `defaultUpdatePolicy` property. The creation UI pre-selects it.
+
+## The policy owner
+
+The owner is the wallet that made the first submission, unless the first submission names a different owner explicitly:
+
+```json
+{ "uverify_owner": "addr1qx…" }
+```
+
+Only the owner can change the policy later, manage the whitelist, transfer ownership, or freeze the record. Wallets on the whitelist may change the display mode, but nothing else.
+
+## Control keys
+
+The owner manages the record by submitting follow-up certificates for the same hash that carry `uverify_*` control keys:
+
+| Key | Effect |
+|---|---|
+| `uverify_update_policy` | Switch the display mode |
+| `uverify_transfer_ownership` | Hand the owner role to another address |
+| `uverify_whitelist_add` | Add addresses (comma-separated) to the whitelist |
+| `uverify_whitelist_remove` | Remove addresses from the whitelist |
+| `uverify_freeze` | Set the mode to `frozen` permanently |
+
+A control-only submission (one whose metadata contains nothing but `uverify_*` keys) manages the record without adding visible content. In `override` mode such submissions are skipped when picking the "latest" entry.
+
+## Example lifecycle
+
+A product passport managed by a manufacturer, with a certified repair shop allowed to append entries:
+
+```json
+// Submission 1 — manufacturer creates the record and whitelists the repair shop
+{
+  "uverify_template_id": "digitalProductPassport",
+  "uverify_update_policy": "whitelist",
+  "uverify_update_whitelist": "addr1_repairshop…",
+  "name": "EcoCharge Powerbank Pro 200",
+  "issuer": "GreenTech AG"
+}
+
+// Submission 2 — repair shop (whitelisted) documents a repair
+{
+  "repair_2026_03": "Battery cell replaced, capacity restored to 98%"
+}
+
+// Submission 3 — manufacturer revokes the shop's access
+{
+  "uverify_whitelist_remove": "addr1_repairshop…"
+}
+
+// Submission 4 — manufacturer retires the product and locks the record
+{
+  "eol_status": "recycled",
+  "uverify_freeze": "true"
+}
+```
+
+The repair entry from submission 2 stays visible even after submission 3, because authorization is evaluated against the whitelist **as it existed at the time of each submission**. Removing an address stops future entries without rewriting history.
+
+## Resolution rules in detail
+
+When the certificate page loads, it fetches all submissions for the hash, sorts them by creation time, and derives the effective policy:
+
+1. The first submission sets the initial mode, owner, and whitelist.
+2. Each later submission is checked against the owner and whitelist state at that point in time. Owner submissions can apply any control key. Whitelisted submissions can only change the display mode.
+3. The resulting policy filters what is displayed: `first` and `frozen` show only the first entry, `override` shows the latest content-bearing entry, `restricted` and `whitelist` drop unauthorized entries, and `accumulate` merges all recognized entries into a single view where existing keys win over later ones.
+
+`uverify_*` control keys are never displayed as certificate content.
