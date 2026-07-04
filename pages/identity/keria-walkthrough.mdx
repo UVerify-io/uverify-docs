@@ -1,0 +1,112 @@
+import { Callout } from 'nextra/components';
+
+# KERIA Sandbox Walkthrough
+
+This walkthrough issues a fully verified identity credential against a local KERI stack, inspects it through the credential API, and revokes it again. Everything runs in the [local sandbox](../sandbox), no external services required.
+
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) 24+
+- [uv](https://docs.astral.sh/uv/) (runs the sandbox CLI)
+- [Deno](https://deno.com) 2+ (runs the example scripts)
+
+## Step 1 — Start the sandbox with the KERIA profile
+
+```bash
+cd uverify-examples
+uv run sandbox.py start --keria
+```
+
+Besides the regular sandbox services this starts the KERI infrastructure:
+
+| Service | URL / Ports | Purpose |
+|---|---|---|
+| KERIA agent | http://localhost:3901 (admin), 3902 (router), 3903 (boot) | Cloud agent that manages your AID |
+| Witness network | ports 5642–5644 | Three KERI witnesses that co-sign the KEL |
+| vLEI Server | http://localhost:7723 | Serves the ACDC credential schemas |
+| vLEI Verifier | http://localhost:7676 | Verifies credential presentations, queried by the backend |
+
+The sandbox backend is pre-configured with `VLEI_VERIFIER_URL=http://vlei-verifier:7676`, so indexed credentials are verified live.
+
+## Step 2 — Create a wallet and issue an unverified credential
+
+The `identity_credential` example creates a wallet, funds it from the sandbox faucet, and walks through the full AUTH → inspect → REVOKE lifecycle:
+
+```bash
+cd typescript/identity_credential
+deno run -A index.ts
+```
+
+On the first run the script prints the wallet's **payment credential** (you need it in the next step) and issues an AUTH certificate with placeholder KERI values. Without a real AID the credential is indexed with `keriVerified: false`, which is the expected result at this point.
+
+## Step 3 — Bootstrap a real KERI identity
+
+`keria-setup.ts` connects to the local KERIA agent and prepares everything the AUTH certificate needs:
+
+```bash
+deno run -A keria-setup.ts <payment-credential-hex>
+```
+
+The script performs six steps:
+
+1. Boots and connects a Signify client to KERIA (a random passcode is generated and saved to `keria-state.json`)
+2. Creates an AID backed by the three sandbox witnesses (threshold 2)
+3. Fetches the OOBI so others can discover the KEL
+4. Creates an ACDC credential registry
+5. Issues an ACDC credential against the ECR schema and submits it to the vLEI Verifier
+6. Signs `cardano:<paymentCredential>` with the AID's signing key to produce the binding proof
+
+It finishes by printing the environment variables for the next step:
+
+```
+KERI_AID=EKtQ1lymrnrh3qv5S18PBzQ7ukHGFJ7EXkH7B22XEMIL
+KERI_SCHEMA=EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy
+KERI_OOBI=http://keria:3902/oobi/…
+KERI_PROOF=0BB1…
+```
+
+<Callout type="info">
+  `keria-setup.ts` is re-entrant. State is saved to `keria-state.json`, so running it again restores the existing AID and only refreshes the signing proof.
+</Callout>
+
+## Step 4 — Issue the verified credential
+
+Re-run the example with the printed variables:
+
+```bash
+KERI_AID=… KERI_SCHEMA=… KERI_OOBI=… KERI_PROOF=… deno run -A index.ts
+```
+
+This time the AUTH certificate carries a real AID that the vLEI Verifier knows about, so the indexer stores it with `keriVerified: true`.
+
+## Step 5 — Inspect the credential
+
+The example polls the credential API automatically, but you can query it yourself:
+
+```bash
+curl http://localhost:9090/api/v1/credential/<payment-credential-hex>?type=identity
+```
+
+```json
+{
+  "authHash": "3f6b…",
+  "credentialType": "identity",
+  "keriAid": "EKtQ1lymrnrh3qv5S18PBzQ7ukHGFJ7EXkH7B22XEMIL",
+  "txHash": "9a41…",
+  "active": true,
+  "keriVerified": true
+}
+```
+
+You can also open the printed verification URL (`http://localhost:3000/verify/<hash>/<txHash>`) to see the IdentityAuth certificate page with the KERI badge.
+
+## Step 6 — Revoke
+
+The example finishes by issuing a REVOKE certificate that targets the AUTH certificate hash. After the indexer processes it, the wallet lookup returns 404 and only the `by-hash` endpoint still resolves the (now inactive) credential.
+
+To register a fresh credential afterwards, either re-run the script (each run generates a new certificate hash) or delete `wallet.txt` to start with a new wallet.
+
+## Where to go from here
+
+- [IdentityAuth Certificate](./identity-auth-certificate) — the full metadata and API reference
+- [Building a Custom Template](../templates/building-a-template) — gate templates on credentials with `requiredCredentials`

@@ -1,0 +1,139 @@
+import { Callout } from 'nextra/components';
+
+# IdentityAuth Certificate
+
+The IdentityAuth certificate binds a KERI identity to a Cardano wallet. It is a regular UVerify certificate with `uverify_template_id: "IdentityAuth"` and a compact set of metadata fields. The backend indexes every IdentityAuth certificate it sees on-chain and exposes the result through the credential API.
+
+There are two lifecycle types:
+
+- **AUTH** registers (announces) a credential for the issuing wallet
+- **REVOKE** invalidates a previously registered credential
+
+## Metadata fields
+
+| Field | AUTH | REVOKE | Description |
+|---|---|---|---|
+| `uverify_template_id` | required | required | Must be `"IdentityAuth"` |
+| `t` | required | required | Lifecycle type: `"AUTH"` or `"REVOKE"` |
+| `ct` | required | required | Credential type, e.g. `identity`, `ISO9001`, `ISO22000`, `CE_Marking` |
+| `i` | required | — | KERI Autonomic Identifier (AID) |
+| `s` | required | — | ACDC leaf credential schema SAID |
+| `o` | optional | — | OOBI endpoint for KEL discovery |
+| `p` | optional | — | KERI proof: the qb64 signature of `cardano:<paymentCredential>` made with the AID's signing key |
+| `th` | — | required | Hash of the AUTH certificate being revoked |
+| `uverify_update_policy` | recommended | recommended | Set to `"first"` so the certificate itself is immutable |
+
+The field names are deliberately short because they are stored on-chain with every certificate. `t`, `i` and `s` mirror the field labels used in KERI event messages.
+
+<Callout type="warning">
+  The wallet that signs the AUTH transaction is the wallet being bound. The backend takes the payment credential from the transaction itself, not from the metadata, so an attacker cannot announce a binding for a wallet they do not control.
+</Callout>
+
+## Hash convention
+
+The certificate hash should be unique per registration. The reference implementation uses:
+
+```
+sha256(paymentCredential + AID + timestamp)
+```
+
+For the REVOKE certificate any unique hash works, for example `sha256(paymentCredential + "REVOKE" + authHash + timestamp)`.
+
+## Registering a credential (AUTH)
+
+```ts
+import { UVerifyClient } from '@uverify/sdk';
+
+const client = new UVerifyClient({ baseUrl, signMessage, signTx });
+
+const authMetadata = {
+  uverify_template_id: 'IdentityAuth',
+  uverify_update_policy: 'first',
+  t: 'AUTH',
+  ct: 'identity',
+  i: 'EKtQ1lymrnrh3qv5S18PBzQ7ukHGFJ7EXkH7B22XEMIL', // KERI AID
+  s: 'EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy', // ACDC schema SAID
+  o: 'http://keria.example.com/oobi/...',            // OOBI endpoint
+  p: '0BB1…',                                        // qb64 signature of "cardano:<paymentCredential>"
+};
+
+const txHash = await client.issueCertificates(address, [
+  { hash: authHash, algorithm: 'SHA-256', metadata: JSON.stringify(authMetadata) },
+]);
+```
+
+`o` and `p` can be omitted. The credential is then indexed with `keriVerified: false`, which is the expected behaviour on deployments without a KERI stack.
+
+## Revoking a credential (REVOKE)
+
+```ts
+const revokeMetadata = {
+  uverify_template_id: 'IdentityAuth',
+  uverify_update_policy: 'first',
+  t: 'REVOKE',
+  ct: 'identity',
+  th: authHash, // hash of the AUTH certificate to invalidate
+};
+
+await client.issueCertificates(address, [
+  { hash: revokeHash, algorithm: 'SHA-256', metadata: JSON.stringify(revokeMetadata) },
+]);
+```
+
+After the indexer processes the REVOKE certificate, the credential is marked revoked and no longer returned by the wallet lookup endpoint. The `by-hash` endpoint still resolves it (with `active: false`) so revocations remain auditable.
+
+## How the backend indexes it
+
+The `IdentityIndexerService` runs asynchronously on every new batch of certificates:
+
+1. It skips certificates whose metadata does not contain `uverify_template_id: "IdentityAuth"`.
+2. For **AUTH** certificates it requires `ct`, extracts `i`, `s` and `o`, and calls the vLEI Verifier (`GET {VLEI_VERIFIER_URL}/authorizations/{aid}`). A 2xx response means `keriVerified: true`. The result is cached per AID.
+3. For **REVOKE** certificates it looks up the credential by `th`, marks it revoked, and evicts the AID from the verifier cache so the next lookup re-checks live.
+
+If `VLEI_VERIFIER_URL` is not configured, verification is skipped and credentials are stored with `keriVerified: false`.
+
+## Credential API
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/credential/{paymentCredential}` | All active (non-revoked) credentials for a wallet. Returns 404 when none exist. |
+| GET | `/api/v1/credential/{paymentCredential}?type={credentialType}` | A single credential of the given type. Returns 404 when no active credential of that type exists. |
+| GET | `/api/v1/credential/by-hash/{authHash}` | Look up a credential (active or revoked) by the hash of its AUTH certificate. |
+
+Response shape (`CredentialResponse`):
+
+```json
+{
+  "authHash": "3f6b…",
+  "credentialType": "identity",
+  "keriAid": "EKtQ1lymrnrh3qv5S18PBzQ7ukHGFJ7EXkH7B22XEMIL",
+  "txHash": "9a41…",
+  "active": true,
+  "keriVerified": true,
+  "acdc": { }
+}
+```
+
+## Backend configuration
+
+| Environment variable | Default | Description |
+|---|---|---|
+| `VLEI_VERIFIER_URL` | (empty) | Base URL of the vLEI Verifier. When empty, credentials are indexed with `keriVerified: false`. |
+| `KERIA_TIMEOUT_MS` | `3000` | Timeout for vLEI Verifier requests. |
+
+## Certificate page rendering
+
+Certificates with `uverify_template_id: "IdentityAuth"` render with the built-in IdentityAuth template. AUTH certificates show a "Verified Credential" card with the credential type, AID, schema, OOBI and a KERI verification badge. REVOKE certificates show a red "Revocation Notice" card that references the revoked credential hash.
+
+## Gating templates by credential
+
+Custom templates can require the issuer to hold an active credential before the template appears in the creation UI:
+
+```ts
+class AuditedLabReport extends Template {
+  public requiredCredentials = ['ISO9001'];
+  // ...
+}
+```
+
+The UI checks `GET /api/v1/credential/{issuer}?type=ISO9001` for the connected wallet and hides the template when the credential is missing or revoked. See [Building a Custom Template](../templates/building-a-template) for the full template API.
