@@ -198,6 +198,21 @@ public requiredCredentials = ['ISO9001'];
 
 Credentials are announced on-chain with an [IdentityAuth certificate](../identity/identity-auth-certificate) and can be revoked at any time, so this gate stays live without any off-chain admin work.
 
+## Sharing and Short Links
+
+Sharing belongs to the template. Built-in templates opt in by rendering the `CertificateShare` component inside their layout. It brings the share button, the dialog with the [short link](../short-links), a QR code, a LinkedIn add-to-profile link and an embed snippet, all computed internally. Props allow customization of the button placement, label, preview title, organization name and embed image:
+
+```tsx
+<CertificateShare
+  hash={hash}
+  metadata={metadata}
+  certificate={certificate}
+  templateId="diploma"
+/>
+```
+
+External templates cannot import this component yet because repository templates only resolve imports from their own repository and `@uverify/core`. Until the component moves into a shared package, an external template that wants sharing builds its own controls. The short link derivation is small: take the first 16 hex chars of the certificate hash, shift out the low 5 bits, encode the value as 10 base62 chars and prepend `https://go.uverify.io/`. The [short links page](../short-links) describes the full scheme, the `uv_og_*` preview keys and the `ogImage` registration field for your template's preview image.
+
 ### `buildTransaction`
 
 By default the creation page builds transactions through `POST /api/v1/transaction/build`. Templates that need a custom flow (for example calling an extension endpoint that mints tokens) can override the builder:
