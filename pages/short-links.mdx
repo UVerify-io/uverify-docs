@@ -1,0 +1,140 @@
+import { Callout } from 'nextra/components';
+
+# Share Links & Previews
+
+## Short Links
+
+Every UVerify certificate has a short link at `https://go.uverify.io/{code}`. The code is the first 59 bits of the certificate's SHA-256 hash encoded in base62, always exactly 10 characters. No registration step is required. Short links work for every certificate automatically.
+
+When a social crawler (LinkedIn, X, Slack, iMessage) fetches the link, the resolver at `go.uverify.io` returns an HTML page with Open Graph meta tags so the platform can render a rich preview card. When a person clicks the link, the resolver redirects them to the full certificate page at `app.uverify.io`.
+
+**Example:** the hash `a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e` produces the code `RXYWODQzXG`, giving the short link `https://go.uverify.io/RXYWODQzXG`.
+
+## Social Preview Metadata Keys
+
+Three metadata keys control what appears in the preview card. Set them at notarization time alongside your other metadata fields.
+
+| Key | Type | Description |
+|---|---|---|
+| `uv_og_title` | string | Title text for the preview card. Supports `{placeholder}` substitution. |
+| `uv_og_desc` | string | Description text for the preview card. Supports `{placeholder}` substitution. |
+| `uv_og_img` | string | HTTPS URL of an image to use in place of the template image. Must be a publicly accessible URL. |
+
+All three keys are optional. When omitted, the resolver falls back to sensible defaults based on the template and certificate hash.
+
+### Example: diploma with a personalized title
+
+```json
+{
+  "uverify_template_id": "diploma",
+  "uv_tid": "diploma",
+  "title": "Bachelor of Computer Science",
+  "uv_url_name": "9f2b1c3e4d5a6789abcdef01234567890abcdef01234567890abcdef01234567",
+  "uv_og_title": "{name} — Bachelor of Computer Science",
+  "uv_og_desc": "Verified diploma issued by Example University on the Cardano blockchain."
+}
+```
+
+The value `{name}` in `uv_og_title` is a placeholder. It is filled from a URL query parameter called `name` — but only after verification. See the next section.
+
+## Placeholders and Verification
+
+A placeholder like `{name}` in `uv_og_title` or `uv_og_desc` is replaced with the value of the corresponding URL query parameter at preview-generation time.
+
+Replacement only happens when the parameter value passes a commitment check. The metadata must contain a key `uv_url_{param}` whose value is the SHA-256 hash of the full parameter string. For the `name` parameter:
+
+```
+uv_url_name = sha256("Jane Doe~x7Rk2p")
+```
+
+If the hash matches, the placeholder is replaced. If there is no query parameter, if the hash does not match, or if the key `uv_url_name` is missing from the metadata, the placeholder is left unresolved and the field falls back to its automatic default. Unverified values never appear in previews.
+
+This means the metadata author controls which values are trustworthy. A third party cannot substitute an arbitrary name into a preview card just by crafting a URL.
+
+## Salted Values
+
+A plain name like `"Jane Doe"` is dictionary-attackable. An attacker who can enumerate common names can brute-force the commitment and confirm whether a particular person holds a certificate.
+
+Appending a random salt prevents this. The recommended format is `value~salt`, for example:
+
+```
+Jane Doe~x7Rk2p
+```
+
+The hash covers the full string including the tilde and salt. Every display in the UVerify UI crops the value at the last tilde, so visitors see "Jane Doe" and not the salt. The salt stays in the URL for as long as the link is shared with that person's name visible.
+
+Salts do not need to be cryptographically strong. Six to eight random alphanumeric characters are sufficient to make brute-force search impractical.
+
+## Privacy
+
+<Callout type="warning">
+Query parameters on a shared link are visible to everyone who sees the post. Sharing a link that includes `?name=Jane+Doe~x7Rk2p` publishes that name to anyone who views the preview or clicks through. The bare short link `https://go.uverify.io/{code}` keeps the name private. UVerify stores neither names nor query parameters.
+</Callout>
+
+Use the bare short link when sharing publicly. Send the full link with query parameters only to the specific person whose name it encodes, or in contexts where that name is already known to all recipients.
+
+## Per-Template Preview Images
+
+Each template ships a preview image at `public/og/{templateId}.png` in the UI repository. The image must be 1200 x 630 pixels. This is the image shown in preview cards when `uv_og_img` is not set.
+
+If no image exists for a given template ID, the resolver falls back to `public/og/default.png`. Custom template authors can ship their own image or rely on the default.
+
+On the hosted `app.uverify.io`, requests for unknown template IDs are handled by a Firebase Hosting rewrite that maps `/og/**` to `/og/default.png`, placed before the SPA catch-all rule. Self-hosters using nginx need the equivalent configuration described below.
+
+## Self-Hosting
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `SHORT_LINK_DOMAIN` | `https://go.uverify.io` | The domain used to construct short links in the backend. Set this to your own resolver domain when self-hosting. |
+| `FRONTEND_URL` | `https://app.uverify.io` | The certificate page base URL the resolver redirects to. |
+| `VITE_SHORT_LINK_DOMAIN` | `https://go.uverify.io` | The domain used by the UI when constructing short links to display and copy. Must match `SHORT_LINK_DOMAIN`. |
+
+### Resolver nginx Configuration
+
+The resolver is a thin nginx proxy in front of the UVerify backend. It accepts 10-character base62 codes and passes them to the backend's `/api/v1/resolve/{code}` endpoint.
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name go.uverify.io;
+
+    location ~ ^/([0-9A-Za-z]{10})$ {
+        proxy_pass http://127.0.0.1:9090/api/v1/resolve/$1$is_args$args;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location / {
+        return 302 https://uverify.io/;
+    }
+}
+```
+
+Create a DNS A record pointing `go.yourdomain.com` to the server's IP address. The TLS certificate must cover this hostname, either as a wildcard (`*.yourdomain.com`) or as an explicit SAN entry.
+
+### og Image Fallback on the UI Host
+
+When the certificate page is served via nginx, requests for `/og/{unknownTemplateId}.png` must return the default image rather than the SPA's `index.html`. Add this block to the nginx server that serves the UI, before the SPA catch-all:
+
+```nginx
+location /og/ {
+    try_files $uri /og/default.png;
+}
+```
+
+Without this, a crawler requesting `/og/my-custom-template.png` would receive the HTML index page, causing the preview image to appear broken.
+
+The hosted `app.uverify.io` achieves the same result through a Firebase Hosting rewrite that maps `/og/**` to `/og/default.png`.
+
+## Sharing Tools
+
+Every certificate page includes a share dialog with four options:
+
+- **Copy link**: copies the short link to the clipboard, with any current query parameters included.
+- **QR code**: displays a scannable QR code encoding the short link.
+- **LinkedIn add-to-profile**: opens LinkedIn's credential add deep link so the certificate owner can add it directly to their profile.
+- **Embed snippet**: provides an HTML snippet for embedding the certificate in a web page.
+
+The Diploma template adds a **Download PDF** button that triggers the browser print dialog with a print-optimised layout. The printed page includes a QR code encoding the short link with the current query parameters, so a printed diploma can be verified by scanning the code with any camera app.
