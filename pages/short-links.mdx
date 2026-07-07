@@ -130,7 +130,7 @@ The hosted `app.uverify.io` achieves the same result through a Firebase Hosting 
 
 ## Sharing Tools
 
-Templates opt into sharing by setting `shareable = true` on the template class. The Diploma, Document Integrity, Laboratory Report, Certificate of Insurance and Digital Product Passport templates enable it today. Privacy focused templates like the pet necklace stay without sharing controls on purpose. A shareable certificate page includes a share dialog with four options:
+Sharing belongs to the template. A template opts in by rendering the `CertificateShare` component inside its layout, which also lets it customize the button placement, label, preview title, organization name and embed image through props. The Diploma, Document Integrity, Laboratory Report, Certificate of Insurance and Digital Product Passport templates render it today. Privacy focused templates like the pet necklace stay without sharing controls on purpose. A shareable certificate page includes a share dialog with four options:
 
 - **Copy link**: copies the short link to the clipboard, with any current query parameters included.
 - **QR code**: displays a scannable QR code encoding the short link.
