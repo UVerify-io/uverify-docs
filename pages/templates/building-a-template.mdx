@@ -190,13 +190,18 @@ public requiredBackendExtensions = ['tokenizable-certificate'];
 
 ### `requiredCredentials`
 
-Hides the template unless the connected wallet holds an active credential of every listed type (checked via `GET /api/v1/credential/{issuer}?type={type}`):
+Renders the template only if the certificate's issuer holds an active credential of every listed type. The check runs when a certificate is displayed (`GET /api/v1/credential/{issuer}?type={type}`). Otherwise the certificate falls back to the default template. The creation UI does not check this field.
 
 ```typescript
 public requiredCredentials = ['ISO9001'];
+public requireVerifiedCredentials = true;
 ```
 
 Credentials are announced on-chain with an [IdentityAuth certificate](../identity/identity-auth-certificate) and can be revoked at any time, so this gate stays live without any off-chain admin work.
+
+<Callout type="warning">
+  Credential types are self-declared. Any wallet can announce a credential of any type for itself, so `requiredCredentials` alone only proves that the issuer made that announcement. Set `requireVerifiedCredentials = true` to also require `keriVerified: true`, which means the vLEI Verifier authorizes the announced AID and the AID signed the binding to the issuer's wallet. Deployments without a vLEI Verifier never report verified credentials, so the template then always falls back to the default. `keriVerified` does not prove that the AID holds a credential of the announced type.
+</Callout>
 
 ## Sharing and Short Links
 
