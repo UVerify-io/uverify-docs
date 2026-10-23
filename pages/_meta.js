@@ -5,6 +5,7 @@ export default {
   'self-hosting': 'Self-Hosting',
   sandbox: 'Local Sandbox',
   templates: 'Custom Templates',
+  'short-links': 'Share Links & Previews',
   identity: 'Identity & Credentials',
   platform: 'UVerify as a Platform',
   extensions: 'Extensions',

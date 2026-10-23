@@ -190,13 +190,33 @@ public requiredBackendExtensions = ['tokenizable-certificate'];
 
 ### `requiredCredentials`
 
-Hides the template unless the connected wallet holds an active credential of every listed type (checked via `GET /api/v1/credential/{issuer}?type={type}`):
+Renders the template only if the certificate's issuer holds an active credential of every listed type. The check runs when a certificate is displayed (`GET /api/v1/credential/{issuer}?type={type}`). Otherwise the certificate falls back to the default template. The creation UI does not check this field.
 
 ```typescript
 public requiredCredentials = ['ISO9001'];
+public requireVerifiedCredentials = true;
 ```
 
 Credentials are announced on-chain with an [IdentityAuth certificate](../identity/identity-auth-certificate) and can be revoked at any time, so this gate stays live without any off-chain admin work.
+
+<Callout type="warning">
+  Credential types are self-declared. Any wallet can announce a credential of any type for itself, so `requiredCredentials` alone only proves that the issuer made that announcement. Set `requireVerifiedCredentials = true` to also require `keriVerified: true`, which means the vLEI Verifier authorizes the announced AID and the AID signed the binding to the issuer's wallet. Deployments without a vLEI Verifier never report verified credentials, so the template then always falls back to the default. `keriVerified` does not prove that the AID holds a credential of the announced type.
+</Callout>
+
+## Sharing and Short Links
+
+Sharing belongs to the template. Built-in templates opt in by rendering the `CertificateShare` component inside their layout. It brings the share button, the dialog with the [short link](../short-links), a QR code, a LinkedIn add-to-profile link and an embed snippet, all computed internally. Props allow customization of the button placement, label, preview title, organization name and embed image:
+
+```tsx
+<CertificateShare
+  hash={hash}
+  metadata={metadata}
+  certificate={certificate}
+  templateId="diploma"
+/>
+```
+
+External templates cannot import this component yet because repository templates only resolve imports from their own repository and `@uverify/core`. Until the component moves into a shared package, an external template that wants sharing builds its own controls. The short link derivation is small: take the first 16 hex chars of the certificate hash, shift out the low 5 bits, encode the value as 10 base62 chars and prepend `https://go.uverify.io/`. The [short links page](../short-links) describes the full scheme, the `uv_og_*` preview keys and the `ogImage` registration field for your template's preview image.
 
 ### `buildTransaction`
 
