@@ -141,8 +141,8 @@ class AuditedLabReport extends Template {
 }
 ```
 
-When a certificate is displayed, the UI checks `GET /api/v1/credential/{issuer}?type=ISO9001` for the certificate's issuer and falls back to the default template when the credential is missing or revoked. With `requireVerifiedCredentials` it also falls back when the credential is not `keriVerified`.
+When a certificate is displayed, the UI checks `GET /api/v1/credential/{issuer}?type=ISO9001` for the certificate's issuer and falls back to the default template when the credential is missing or revoked. With `requireVerifiedCredentials` it also falls back when the credential is not `keriVerified`. See [Building a Custom Template](../templates/building-a-template) for the full template API.
 
 <Callout type="warning">
   The credential type `ct` is self-declared by the issuing wallet. Without `requireVerifiedCredentials` the gate is met by any wallet that announces a credential of that type for itself. `keriVerified` proves the binding between the AID and the wallet, but not that the AID holds a credential of type `ct`.
-</Callout> See [Building a Custom Template](../templates/building-a-template) for the full template API.
+</Callout>
